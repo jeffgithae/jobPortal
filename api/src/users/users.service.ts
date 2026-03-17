@@ -1,11 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
-import { CandidateProfileService } from '../candidate/services/candidate-profile.service';
-import { JobsService } from '../jobs/services/jobs.service';
-import { DEMO_USER_SEED } from '../shared/demo-data';
+import { DEMO_PROFILE_SEED, DEMO_USER_SEED } from '../shared/demo-data';
 import { DEFAULT_OWNER_KEY } from '../shared/system-defaults';
-import { CreateUserDto } from './dto/create-user.dto';
+import { CandidateProfile, CandidateProfileDocument } from '../candidate/schemas/candidate-profile.schema';
 import { AppUser, AppUserDocument } from './schemas/app-user.schema';
 
 @Injectable()
@@ -13,8 +11,8 @@ export class UsersService {
   constructor(
     @InjectModel(AppUser.name)
     private readonly appUserModel: Model<AppUserDocument>,
-    private readonly candidateProfileService: CandidateProfileService,
-    private readonly jobsService: JobsService,
+    @InjectModel(CandidateProfile.name)
+    private readonly candidateProfileModel: Model<CandidateProfileDocument>,
   ) {}
 
   async ensureStarterUser() {
@@ -24,17 +22,43 @@ export class UsersService {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
 
-    await this.candidateProfileService.ensurePrimaryProfile(DEFAULT_OWNER_KEY);
+    await this.candidateProfileModel.findOneAndUpdate(
+      { ownerKey: DEFAULT_OWNER_KEY },
+      { $setOnInsert: DEMO_PROFILE_SEED },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
   }
 
-  async listUsers() {
+  async countUsers() {
     await this.ensureStarterUser();
-    return this.appUserModel.find().sort({ seeded: -1, displayName: 1 });
+    return this.appUserModel.countDocuments();
   }
 
-  async createUser(createUserDto: CreateUserDto) {
-    const email = createUserDto.email.trim().toLowerCase();
-    const displayName = createUserDto.displayName.trim();
+  async findByEmail(email: string) {
+    return this.appUserModel.findOne({ email: email.trim().toLowerCase() });
+  }
+
+  async findByOwnerKey(ownerKey: string) {
+    return this.appUserModel.findOne({ ownerKey });
+  }
+
+  async findBySessionTokenHash(sessionTokenHash: string) {
+    return this.appUserModel.findOne({
+      sessionTokenHash,
+      sessionExpiresAt: {
+        $gt: new Date(),
+      },
+    });
+  }
+
+  async createUserAccount(input: {
+    displayName: string;
+    email: string;
+    passwordSalt: string;
+    passwordHash: string;
+  }) {
+    const email = input.email.trim().toLowerCase();
+    const displayName = input.displayName.trim();
     const existingEmailUser = await this.appUserModel.findOne({ email });
 
     if (existingEmailUser) {
@@ -46,17 +70,60 @@ export class UsersService {
       ownerKey,
       displayName,
       email,
+      passwordSalt: input.passwordSalt,
+      passwordHash: input.passwordHash,
       seeded: false,
     });
 
-    await this.candidateProfileService.createProfileForUser({
-      ownerKey,
-      fullName: displayName,
-      email,
-    });
-    await this.jobsService.rescoreOwnerMatches(ownerKey);
+    await this.candidateProfileModel.findOneAndUpdate(
+      { ownerKey },
+      {
+        $setOnInsert: {
+          ownerKey,
+          fullName: displayName,
+          email,
+          preferredLocations: [],
+          workPreferences: [],
+          yearsExperience: 0,
+          targetRoles: [],
+          skills: [],
+          certifications: [],
+          languages: [],
+          education: [],
+          experienceHighlights: [],
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
 
     return user;
+  }
+
+  async saveSession(userId: string, sessionTokenHash: string, sessionExpiresAt: Date) {
+    return this.appUserModel.findByIdAndUpdate(
+      userId,
+      {
+        $set: {
+          sessionTokenHash,
+          sessionExpiresAt,
+          lastLoginAt: new Date(),
+        },
+      },
+      { new: true },
+    );
+  }
+
+  async clearSession(userId: string) {
+    return this.appUserModel.findByIdAndUpdate(
+      userId,
+      {
+        $unset: {
+          sessionTokenHash: 1,
+          sessionExpiresAt: 1,
+        },
+      },
+      { new: true },
+    );
   }
 
   private async generateOwnerKey(displayName: string, email: string) {

@@ -6,15 +6,21 @@ import {
   ParseIntPipe,
   Post,
   Query,
+  Req,
   UploadedFile,
+  UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
+import { Request } from 'express';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { SessionAuthGuard } from '../auth/session-auth.guard';
 import { CandidateProfileService } from '../candidate/services/candidate-profile.service';
-import { DEFAULT_MATCH_THRESHOLD, DEFAULT_OWNER_KEY } from '../shared/system-defaults';
+import { DEFAULT_MATCH_THRESHOLD } from '../shared/system-defaults';
+import { AppUserDocument } from '../users/schemas/app-user.schema';
 import { CreateJobSourceDto } from './dto/create-job-source.dto';
 import { JobsService } from './services/jobs.service';
 
+@UseGuards(SessionAuthGuard)
 @Controller('jobs')
 export class JobsController {
   constructor(
@@ -28,10 +34,10 @@ export class JobsController {
     page: number,
     @Query('pageSize', new DefaultValuePipe(12), ParseIntPipe)
     pageSize: number,
+    @Req() request: Request & { user: AppUserDocument },
     @Query('realOnly') realOnly?: string,
-    @Query('userKey') userKey = DEFAULT_OWNER_KEY,
   ) {
-    return this.jobsService.getAllJobs(userKey, {
+    return this.jobsService.getAllJobs(request.user.ownerKey, {
       page,
       pageSize,
       realOnly: realOnly === 'true',
@@ -46,10 +52,10 @@ export class JobsController {
     page: number,
     @Query('pageSize', new DefaultValuePipe(12), ParseIntPipe)
     pageSize: number,
+    @Req() request: Request & { user: AppUserDocument },
     @Query('realOnly') realOnly?: string,
-    @Query('userKey') userKey = DEFAULT_OWNER_KEY,
   ) {
-    return this.jobsService.getMatches(userKey, {
+    return this.jobsService.getMatches(request.user.ownerKey, {
       threshold,
       page,
       pageSize,
@@ -73,8 +79,8 @@ export class JobsController {
   }
 
   @Post('ingest/run')
-  runManualIngestion(@Query('userKey') userKey = DEFAULT_OWNER_KEY) {
-    return this.jobsService.runManualIngestion(userKey);
+  runManualIngestion(@Req() request: Request & { user: AppUserDocument }) {
+    return this.jobsService.runManualIngestion(request.user.ownerKey);
   }
 
   @Post('resume-sync')
@@ -82,10 +88,10 @@ export class JobsController {
   async syncResumeAndIngestion(
     @UploadedFile()
     file: { buffer: Buffer; mimetype?: string; originalname?: string },
-    @Query('userKey') userKey = DEFAULT_OWNER_KEY,
+    @Req() request: Request & { user: AppUserDocument },
   ) {
-    const profile = await this.candidateProfileService.uploadResume(file, userKey);
-    const ingestionSummary = await this.jobsService.runManualIngestion(userKey);
+    const profile = await this.candidateProfileService.uploadResume(file, request.user.ownerKey);
+    const ingestionSummary = await this.jobsService.runManualIngestion(request.user.ownerKey);
 
     return {
       profile,

@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
+import { AuthModule } from '../auth/auth.module';
 import { CandidateModule } from '../candidate/candidate.module';
 import { JobsController } from './jobs.controller';
 import { JobMatch, JobMatchSchema } from './schemas/job-match.schema';
@@ -16,6 +17,7 @@ import { JobSourceRegistryService } from './services/job-source-registry.service
 @Module({
   imports: [
     CandidateModule,
+    AuthModule,
     MongooseModule.forFeature([
       {
         name: JobSource.name,

@@ -11,15 +11,15 @@ export class AppController {
 
   @Get()
   async getHealth() {
-    const [users, sources, jobs] = await Promise.all([
-      this.usersService.listUsers(),
+    const [usersCount, sources, jobs] = await Promise.all([
+      this.usersService.countUsers(),
       this.jobsService.listSources(),
       this.jobsService.getAllJobs(),
     ]);
 
     return {
       status: 'ok',
-      usersCount: users.length,
+      usersCount,
       sourceCount: sources.length,
       ingestedJobCount: jobs.total,
       generatedAt: new Date().toISOString(),

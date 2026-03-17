@@ -4,6 +4,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { BootstrapService } from './app/bootstrap.service';
+import { AuthModule } from './auth/auth.module';
 import { CandidateModule } from './candidate/candidate.module';
 import { JobsModule } from './jobs/jobs.module';
 import { UsersModule } from './users/users.module';
@@ -24,6 +25,7 @@ import { UsersModule } from './users/users.module';
     CandidateModule,
     JobsModule,
     UsersModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [BootstrapService],

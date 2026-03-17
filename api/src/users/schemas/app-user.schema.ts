@@ -14,6 +14,21 @@ export class AppUser {
   @Prop({ required: true, lowercase: true, trim: true, unique: true })
   email: string;
 
+  @Prop()
+  passwordSalt?: string;
+
+  @Prop()
+  passwordHash?: string;
+
+  @Prop()
+  sessionTokenHash?: string;
+
+  @Prop()
+  sessionExpiresAt?: Date;
+
+  @Prop()
+  lastLoginAt?: Date;
+
   @Prop({ default: false })
   seeded: boolean;
 }

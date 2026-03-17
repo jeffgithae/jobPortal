@@ -1,23 +1,22 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { CandidateModule } from '../candidate/candidate.module';
-import { JobsModule } from '../jobs/jobs.module';
+import { CandidateProfile, CandidateProfileSchema } from '../candidate/schemas/candidate-profile.schema';
 import { AppUser, AppUserSchema } from './schemas/app-user.schema';
-import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 
 @Module({
   imports: [
-    CandidateModule,
-    JobsModule,
     MongooseModule.forFeature([
       {
         name: AppUser.name,
         schema: AppUserSchema,
       },
+      {
+        name: CandidateProfile.name,
+        schema: CandidateProfileSchema,
+      },
     ]),
   ],
-  controllers: [UsersController],
   providers: [UsersService],
   exports: [UsersService],
 })

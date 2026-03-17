@@ -1,88 +1,4 @@
 <div class="shell">
-  <section class="hero-frame card">
-    <div class="hero-copy">
-      <p class="eyebrow">Job Intelligence Workspace</p>
-      <h1>Resume-first job discovery with live boards, match scoring, and direct apply links.</h1>
-      <p class="hero-text">
-        Track real ATS sources, prioritize jobs you are most likely to land, and keep the full live market one page away.
-      </p>
-
-      <div class="user-workspace content-block">
-        <div class="block-head">
-          <h3>User workspace</h3>
-          <span>{{ users().length }} active profiles</span>
-        </div>
-
-        <label class="field-panel">
-          <span>Selected user</span>
-          <select #userSelect [value]="activeUserKey()" (change)="switchUser(userSelect.value)">
-            @for (user of users(); track trackByUser($index, user)) {
-              <option [value]="user.ownerKey">{{ user.displayName }} • {{ user.email }}</option>
-            }
-          </select>
-        </label>
-
-        <div class="inline-fields">
-          <label class="field-panel">
-            <span>New user name</span>
-            <input #userNameInput type="text" placeholder="Jane Doe" />
-          </label>
-
-          <label class="field-panel">
-            <span>New user email</span>
-            <input #userEmailInput type="email" placeholder="jane@example.com" />
-          </label>
-        </div>
-
-        <button type="button" class="secondary" (click)="createUser(userNameInput, userEmailInput)" [disabled]="isCreatingUser()">
-          {{ isCreatingUser() ? 'Creating workspace...' : 'Create isolated user workspace' }}
-        </button>
-      </div>
-    </div>
-
-    <div class="hero-signal">
-      <div class="signal-card">
-        <span class="signal-label">Current threshold</span>
-        <strong>{{ threshold() }}%</strong>
-        <p>Real-match filtering is applied before jobs land in the shortlist.</p>
-      </div>
-
-      @if (strongestMatch(); as topMatch) {
-        <div class="signal-card signal-feature">
-          <span class="signal-label">Strongest live match</span>
-          <strong>{{ topMatch.title }}</strong>
-          <p>{{ topMatch.company }} • {{ topMatch.remote ? 'Remote' : topMatch.location }}</p>
-          <a [href]="topMatch.url" target="_blank" rel="noreferrer">Open role</a>
-        </div>
-      } @else {
-        <div class="signal-card signal-feature empty-feature">
-          <span class="signal-label">Strongest live match</span>
-          <strong>Waiting for live recommendations</strong>
-          <p>Run ingestion or lower the threshold to widen the shortlist.</p>
-        </div>
-      }
-    </div>
-
-    <div class="hero-metrics">
-      <article class="metric-tile">
-        <span>Real matches</span>
-        <strong>{{ recommendedCount() }}</strong>
-      </article>
-      <article class="metric-tile">
-        <span>Live jobs</span>
-        <strong>{{ liveJobsCount() }}</strong>
-      </article>
-      <article class="metric-tile">
-        <span>Enabled boards</span>
-        <strong>{{ enabledSources().length }}</strong>
-      </article>
-      <article class="metric-tile">
-        <span>Tracked boards</span>
-        <strong>{{ sourceCatalog().length }}</strong>
-      </article>
-    </div>
-  </section>
-
   @if (error()) {
     <section class="card alert-bar">
       <strong>API status</strong>
@@ -90,350 +6,373 @@
     </section>
   }
 
-  @if (isLoading()) {
-    <section class="card loading-panel">Loading profile, sources, and live jobs...</section>
+  @if (!isAuthenticated()) {
+    <section class="auth-shell card">
+      <div class="auth-copy">
+        <p class="eyebrow">JobPortal</p>
+        <h1>Private job intelligence for each candidate account.</h1>
+        <p class="hero-text">
+          Sign in to see your own profile, your own live matches, and your own application shortlist. Resume uploads and scoring stay isolated per account.
+        </p>
+
+        <div class="auth-notes">
+          <article class="note-card">
+            <span class="signal-label">Private workspace</span>
+            <strong>Only your jobs after login</strong>
+            <p>Each account has its own resume, match scores, and recommendation stream.</p>
+          </article>
+          <article class="note-card">
+            <span class="signal-label">Live ATS sources</span>
+            <strong>Direct application links</strong>
+            <p>Track public Greenhouse and Lever roles without mixing candidate scoring across users.</p>
+          </article>
+        </div>
+      </div>
+
+      <div class="auth-grid">
+        <article class="auth-card">
+          <p class="eyebrow">Sign in</p>
+          <h2>Access your job room</h2>
+          <p class="section-copy">Use the email and password for your account.</p>
+
+          <div class="auth-form">
+            <label class="field-panel">
+              <span>Email</span>
+              <input #loginEmailInput type="email" placeholder="you@example.com" />
+            </label>
+            <label class="field-panel">
+              <span>Password</span>
+              <input #loginPasswordInput type="password" placeholder="Minimum 8 characters" />
+            </label>
+            <button type="button" (click)="login(loginEmailInput, loginPasswordInput)" [disabled]="isAuthenticating()">
+              {{ isAuthenticating() ? 'Signing in...' : 'Sign in' }}
+            </button>
+          </div>
+        </article>
+
+        <article class="auth-card register-card">
+          <p class="eyebrow">Create account</p>
+          <h2>Start a private workspace</h2>
+          <p class="section-copy">Create an account before uploading your resume and reviewing matched jobs.</p>
+
+          <div class="auth-form">
+            <label class="field-panel">
+              <span>Full name</span>
+              <input #registerNameInput type="text" placeholder="Jane Doe" />
+            </label>
+            <label class="field-panel">
+              <span>Email</span>
+              <input #registerEmailInput type="email" placeholder="jane@example.com" />
+            </label>
+            <label class="field-panel">
+              <span>Password</span>
+              <input #registerPasswordInput type="password" placeholder="Minimum 8 characters" />
+            </label>
+            <button type="button" class="secondary" (click)="register(registerNameInput, registerEmailInput, registerPasswordInput)" [disabled]="isAuthenticating()">
+              {{ isAuthenticating() ? 'Creating account...' : 'Create account' }}
+            </button>
+          </div>
+        </article>
+      </div>
+    </section>
   } @else {
-    <section class="workspace-grid">
-      <article class="card profile-panel">
-        <div class="section-headline">
+    <section class="hero-frame card">
+      <div class="hero-copy">
+        <p class="eyebrow">Authenticated workspace</p>
+        <h1>Resume-first job discovery with live boards, match scoring, and direct apply links.</h1>
+        <p class="hero-text">
+          Your dashboard is private to your account. Upload a resume, refresh live ATS sources, and review only the jobs scored for {{ authUser()?.displayName }}.
+        </p>
+
+        <div class="member-ribbon content-block">
           <div>
-            <p class="eyebrow">Candidate profile</p>
-            <h2>{{ profile()?.fullName }}</h2>
-            <p class="section-copy">{{ profile()?.headline }}</p>
+            <span class="signal-label">Signed in as</span>
+            <strong>{{ authUser()?.displayName }}</strong>
+            <p>{{ authUser()?.email }}</p>
           </div>
-          <div class="badge-pill">{{ profile()?.yearsExperience }}+ years</div>
+          <button type="button" class="secondary ghost-light" (click)="logout()">Sign out</button>
+        </div>
+      </div>
+
+      <div class="hero-signal">
+        <div class="signal-card">
+          <span class="signal-label">Current threshold</span>
+          <strong>{{ threshold() }}%</strong>
+          <p>Real-match filtering is applied before jobs land in the shortlist.</p>
         </div>
 
-        <div class="identity-strip">
-          <span>{{ profile()?.location }}</span>
-          <span>{{ profile()?.email }}</span>
-          <span>{{ profile()?.phone }}</span>
-        </div>
-
-        <p class="profile-summary">{{ profile()?.summary }}</p>
-
-        <div class="profile-grid">
-          <section class="content-block">
-            <div class="block-head">
-              <h3>Target roles</h3>
-              <span>Focus areas</span>
-            </div>
-            <div class="chip-wrap">
-              @for (role of profile()?.targetRoles ?? []; track role) {
-                <span class="chip chip-emphasis">{{ role }}</span>
-              }
-            </div>
-          </section>
-
-          <section class="content-block">
-            <div class="block-head">
-              <h3>Core skills</h3>
-              <span>Resume-derived</span>
-            </div>
-            <div class="chip-wrap">
-              @for (skill of profile()?.skills ?? []; track skill) {
-                <span class="chip">{{ skill }}</span>
-              }
-            </div>
-          </section>
-        </div>
-
-        <div class="dual-columns">
-          <section class="content-block compact-block">
-            <div class="block-head">
-              <h3>Certifications</h3>
-              <span>Signals</span>
-            </div>
-            <ul>
-              @for (cert of profile()?.certifications ?? []; track cert) {
-                <li>{{ cert }}</li>
-              }
-            </ul>
-          </section>
-
-          <section class="content-block compact-block">
-            <div class="block-head">
-              <h3>Career highlights</h3>
-              <span>Experience</span>
-            </div>
-            <ul>
-              @for (highlight of profile()?.experienceHighlights ?? []; track highlight) {
-                <li>{{ highlight }}</li>
-              }
-            </ul>
-          </section>
-        </div>
-      </article>
-
-      <aside class="card command-panel">
-        <div class="section-headline">
-          <div>
-            <p class="eyebrow">Command center</p>
-            <h2>Control ingestion and scoring</h2>
-            <p class="section-copy">Refresh live sources, upload a newer resume, or tighten the shortlist threshold for {{ selectedUser()?.displayName ?? 'the active user' }}.</p>
+        @if (strongestMatch(); as topMatch) {
+          <div class="signal-card signal-feature">
+            <span class="signal-label">Strongest live match</span>
+            <strong>{{ topMatch.title }}</strong>
+            <p>{{ topMatch.company }} • {{ topMatch.remote ? 'Remote' : topMatch.location }}</p>
+            <a [href]="topMatch.url" target="_blank" rel="noreferrer">Open role</a>
           </div>
-        </div>
+        } @else {
+          <div class="signal-card signal-feature empty-feature">
+            <span class="signal-label">Strongest live match</span>
+            <strong>Waiting for live recommendations</strong>
+            <p>Run ingestion or lower the threshold to widen the shortlist.</p>
+          </div>
+        }
+      </div>
 
-        <label class="field-panel">
-          <span>Hiring confidence threshold</span>
-          <input #thresholdInput type="number" min="50" max="100" [value]="threshold()" (change)="refreshMatchesForThreshold(thresholdInput.value)" />
-        </label>
+      <div class="hero-metrics">
+        <article class="metric-tile">
+          <span>Real matches</span>
+          <strong>{{ recommendedCount() }}</strong>
+        </article>
+        <article class="metric-tile">
+          <span>Live jobs</span>
+          <strong>{{ liveJobsCount() }}</strong>
+        </article>
+        <article class="metric-tile">
+          <span>Enabled boards</span>
+          <strong>{{ enabledSources().length }}</strong>
+        </article>
+        <article class="metric-tile">
+          <span>Tracked boards</span>
+          <strong>{{ sourceCatalog().length }}</strong>
+        </article>
+      </div>
+    </section>
 
-        <div class="action-stack">
-          <button type="button" (click)="runIngestion()" [disabled]="isRefreshing()">
-            {{ isRefreshing() ? 'Refreshing live boards...' : 'Run live ingestion now' }}
-          </button>
-          <label class="upload-dropzone">
-            <input type="file" accept=".pdf,.txt" (change)="onFileSelected($event)" />
-            <span>{{ selectedFile()?.name ?? 'Choose resume file' }}</span>
-            <small>PDF or TXT only</small>
+    @if (isLoading()) {
+      <section class="card loading-panel">Loading your profile, sources, and live jobs...</section>
+    } @else {
+      <section class="workspace-grid">
+        <article class="card profile-panel">
+          <div class="section-headline">
+            <div>
+              <p class="eyebrow">Candidate profile</p>
+              <h2>{{ profile()?.fullName }}</h2>
+              <p class="section-copy">{{ profile()?.headline }}</p>
+            </div>
+            <div class="badge-pill">{{ profile()?.yearsExperience }}+ years</div>
+          </div>
+
+          <div class="identity-strip">
+            <span>{{ profile()?.location }}</span>
+            <span>{{ profile()?.email }}</span>
+            <span>{{ profile()?.phone }}</span>
+          </div>
+
+          <p class="profile-summary">{{ profile()?.summary }}</p>
+
+          <div class="profile-grid">
+            <section class="content-block">
+              <div class="block-head">
+                <h3>Target roles</h3>
+                <span>Focus areas</span>
+              </div>
+              <div class="chip-wrap">
+                @for (role of profile()?.targetRoles ?? []; track role) {
+                  <span class="chip chip-emphasis">{{ role }}</span>
+                }
+              </div>
+            </section>
+
+            <section class="content-block">
+              <div class="block-head">
+                <h3>Core skills</h3>
+                <span>Resume-derived</span>
+              </div>
+              <div class="chip-wrap">
+                @for (skill of profile()?.skills ?? []; track skill) {
+                  <span class="chip">{{ skill }}</span>
+                }
+              </div>
+            </section>
+          </div>
+        </article>
+
+        <aside class="card command-panel">
+          <div class="section-headline">
+            <div>
+              <p class="eyebrow">Command center</p>
+              <h2>Control ingestion and scoring</h2>
+              <p class="section-copy">Refresh live sources, upload a newer resume, or tighten the shortlist threshold for your account.</p>
+            </div>
+          </div>
+
+          <label class="field-panel">
+            <span>Hiring confidence threshold</span>
+            <input #thresholdInput type="number" min="50" max="100" [value]="threshold()" (change)="refreshMatchesForThreshold(thresholdInput.value)" />
           </label>
-          <button type="button" class="secondary" (click)="uploadResume()" [disabled]="isUploading() || !selectedFile()">
-            {{ isUploading() ? 'Updating profile...' : 'Upload and rescore' }}
-          </button>
-        </div>
 
-        @if (ingestionSummary(); as summary) {
-          <section class="status-panel">
-            <div class="status-row">
-              <span>Last run</span>
-              <strong>{{ summary.ranAt | date:'medium' }}</strong>
+          <div class="action-stack">
+            <button type="button" (click)="runIngestion()" [disabled]="isRefreshing()">
+              {{ isRefreshing() ? 'Refreshing live boards...' : 'Run live ingestion now' }}
+            </button>
+            <label class="upload-dropzone">
+              <input type="file" accept=".pdf,.txt" (change)="onFileSelected($event)" />
+              <span>{{ selectedFile()?.name ?? 'Choose resume file' }}</span>
+              <small>PDF or TXT only</small>
+            </label>
+            <button type="button" class="secondary" (click)="uploadResume()" [disabled]="isUploading() || !selectedFile()">
+              {{ isUploading() ? 'Updating profile...' : 'Upload and rescore' }}
+            </button>
+          </div>
+
+          @if (ingestionSummary(); as summary) {
+            <section class="status-panel">
+              <div class="status-row">
+                <span>Last run</span>
+                <strong>{{ summary.ranAt | date:'medium' }}</strong>
+              </div>
+              <div class="status-grid">
+                <article>
+                  <span>Sources</span>
+                  <strong>{{ summary.sourcesRun }}</strong>
+                </article>
+                <article>
+                  <span>Upserted</span>
+                  <strong>{{ summary.jobsUpserted }}</strong>
+                </article>
+                <article>
+                  <span>Recommended</span>
+                  <strong>{{ summary.matchedJobs }}</strong>
+                </article>
+              </div>
+            </section>
+          }
+
+          <section class="live-source-strip">
+            <div class="block-head">
+              <h3>Active source mix</h3>
+              <span>{{ enabledSources().length }} live</span>
             </div>
-            <div class="status-grid">
-              <article>
-                <span>Sources</span>
-                <strong>{{ summary.sourcesRun }}</strong>
-              </article>
-              <article>
-                <span>Upserted</span>
-                <strong>{{ summary.jobsUpserted }}</strong>
-              </article>
-              <article>
-                <span>Recommended</span>
-                <strong>{{ summary.matchedJobs }}</strong>
-              </article>
+            <div class="source-pill-wrap">
+              @for (source of enabledSources(); track trackBySource($index, source)) {
+                <span class="source-pill">{{ source.name }}</span>
+              }
             </div>
           </section>
-        }
+        </aside>
+      </section>
 
-        <section class="live-source-strip">
-          <div class="block-head">
-            <h3>Active source mix</h3>
-            <span>{{ enabledSources().length }} live</span>
-          </div>
-          <div class="source-pill-wrap">
-            @for (source of enabledSources(); track trackBySource($index, source)) {
-              <span class="source-pill">{{ source.name }}</span>
-            }
-          </div>
-        </section>
-      </aside>
-    </section>
-
-    <section class="card section-panel match-panel">
-      <div class="section-headline">
-        <div>
-          <p class="eyebrow">Priority shortlist</p>
-          <h2>Real jobs at {{ threshold() }}% or higher</h2>
-          <p class="section-copy">This list only contains live ATS roles that clear your current hiring-confidence threshold.</p>
-        </div>
-        <div class="badge-pill">{{ recommendedCount() }} roles</div>
-      </div>
-
-      <div class="jobs-grid spotlight-grid">
-        @for (job of matches(); track trackByTitle($index, job)) {
-          <article class="job-card priority-card">
-            <div class="job-topline">
-              <span class="job-source-tag">{{ job.sourceName }}</span>
-              <div class="score-chip">{{ job.matchScore }}%</div>
-            </div>
-
-            <div class="job-heading">
-              <h3>{{ job.title }}</h3>
-              <p>{{ job.company }} • {{ job.remote ? 'Remote' : job.location }}</p>
-            </div>
-
-            <div class="chip-wrap compact-wrap">
-              @for (skill of job.skills; track skill) {
-                <span class="chip">{{ skill }}</span>
-              }
-            </div>
-
-            <div class="analysis-grid">
-              <section>
-                <h4>Why it matches</h4>
-                <ul>
-                  @for (reason of job.matchReasons; track reason) {
-                    <li>{{ reason }}</li>
-                  }
-                </ul>
-              </section>
-              <section>
-                <h4>Review before applying</h4>
-                <ul>
-                  @for (gap of job.missingRequirements; track gap) {
-                    <li>{{ gap }}</li>
-                  } @empty {
-                    <li>No major gaps detected.</li>
-                  }
-                </ul>
-              </section>
-            </div>
-
-            <div class="job-footer">
-              <span>{{ job.employmentType ?? 'Open type' }}</span>
-              @if (job.url) {
-                <a [href]="job.url" target="_blank" rel="noreferrer">Apply at source</a>
-              }
-            </div>
-          </article>
-        } @empty {
-          <p class="empty-state">No live roles currently meet the threshold. Lower the cutoff or ingest more sources.</p>
-        }
-      </div>
-
-      <div class="pager-bar">
-        <span>Page {{ matchesPage()?.page ?? 1 }} of {{ matchesPage()?.totalPages ?? 1 }}</span>
-        <div class="pager-actions">
-          <button type="button" class="secondary" (click)="goToMatchesPage((matchesPage()?.page ?? 1) - 1)" [disabled]="(matchesPage()?.page ?? 1) <= 1">
-            Previous
-          </button>
-          <button type="button" class="secondary" (click)="goToMatchesPage((matchesPage()?.page ?? 1) + 1)" [disabled]="(matchesPage()?.page ?? 1) >= (matchesPage()?.totalPages ?? 1)">
-            Next
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <section class="card section-panel market-panel">
-      <div class="section-headline">
-        <div>
-          <p class="eyebrow">Market view</p>
-          <h2>All real jobs with source application URLs</h2>
-          <p class="section-copy">The complete live feed from enabled real connectors, regardless of whether each role currently scores above the shortlist threshold.</p>
-        </div>
-        <div class="badge-pill">{{ liveJobsCount() }} live roles</div>
-      </div>
-
-      <div class="jobs-grid market-grid">
-        @for (job of jobs(); track trackByTitle($index, job)) {
-          <article class="job-card market-card">
-            <div class="job-topline">
-              <span class="job-source-tag neutral-tag">{{ job.sourceName }}</span>
-              <div class="score-chip muted-score">{{ job.matchScore }}%</div>
-            </div>
-
-            <div class="job-heading">
-              <h3>{{ job.title }}</h3>
-              <p>{{ job.company }} • {{ job.remote ? 'Remote' : job.location }}</p>
-            </div>
-
-            <div class="job-footer">
-              <span>{{ job.employmentType ?? 'Open type' }}</span>
-              @if (job.url) {
-                <a [href]="job.url" target="_blank" rel="noreferrer">Open listing</a>
-              }
-            </div>
-          </article>
-        } @empty {
-          <p class="empty-state">No live source jobs are available yet. Run ingestion after enabling real ATS connectors.</p>
-        }
-      </div>
-
-      <div class="pager-bar">
-        <span>Page {{ jobsPage()?.page ?? 1 }} of {{ jobsPage()?.totalPages ?? 1 }}</span>
-        <div class="pager-actions">
-          <button type="button" class="secondary" (click)="goToJobsPage((jobsPage()?.page ?? 1) - 1)" [disabled]="(jobsPage()?.page ?? 1) <= 1">
-            Previous
-          </button>
-          <button type="button" class="secondary" (click)="goToJobsPage((jobsPage()?.page ?? 1) + 1)" [disabled]="(jobsPage()?.page ?? 1) >= (jobsPage()?.totalPages ?? 1)">
-            Next
-          </button>
-        </div>
-      </div>
-    </section>
-
-    <section class="matrix-grid">
-      <section class="card section-panel connectors-panel">
+      <section class="card section-panel match-panel">
         <div class="section-headline">
           <div>
-            <p class="eyebrow">Connectors</p>
-            <h2>Configured sources</h2>
+            <p class="eyebrow">Priority shortlist</p>
+            <h2>Real jobs at {{ threshold() }}% or higher</h2>
+            <p class="section-copy">This list only contains live ATS roles that clear your current hiring-confidence threshold.</p>
           </div>
-          <div class="badge-pill">Runs daily at 2:00 AM</div>
+          <div class="badge-pill">{{ recommendedCount() }} roles</div>
         </div>
 
-        <div class="sources-grid">
-          @for (source of sources(); track trackBySource($index, source)) {
-            <article class="source-card">
-              <div class="source-topline">
-                <h3>{{ source.name }}</h3>
-                <span [class.good]="source.enabled" [class.muted]="!source.enabled">
-                  {{ source.enabled ? 'Enabled' : 'Template' }}
-                </span>
+        <div class="jobs-grid spotlight-grid">
+          @for (job of matches(); track trackByTitle($index, job)) {
+            <article class="job-card priority-card">
+              <div class="job-topline">
+                <span class="job-source-tag">{{ job.sourceName }}</span>
+                <div class="score-chip">{{ job.matchScore }}%</div>
               </div>
-              <p>{{ source.type }}</p>
-              <p>{{ source.runCron }} • {{ source.timeZone }}</p>
-              <p><strong>Status:</strong> {{ source.lastRunStatus ?? 'not run yet' }}</p>
-              @if (source.lastRunError) {
-                <p class="error-copy">{{ source.lastRunError }}</p>
-              }
+
+              <div class="job-heading">
+                <h3>{{ job.title }}</h3>
+                <p>{{ job.company }} • {{ job.remote ? 'Remote' : job.location }}</p>
+              </div>
+
+              <div class="chip-wrap compact-wrap">
+                @for (skill of job.skills; track skill) {
+                  <span class="chip">{{ skill }}</span>
+                }
+              </div>
+
+              <div class="analysis-grid">
+                <section>
+                  <h4>Why it matches</h4>
+                  <ul>
+                    @for (reason of job.matchReasons; track reason) {
+                      <li>{{ reason }}</li>
+                    }
+                  </ul>
+                </section>
+                <section>
+                  <h4>Review before applying</h4>
+                  <ul>
+                    @for (gap of job.missingRequirements; track gap) {
+                      <li>{{ gap }}</li>
+                    } @empty {
+                      <li>No major gaps detected.</li>
+                    }
+                  </ul>
+                </section>
+              </div>
+
+              <div class="job-footer">
+                <span>{{ job.employmentType ?? 'Open type' }}</span>
+                @if (job.url) {
+                  <a [href]="job.url" target="_blank" rel="noreferrer">Apply at source</a>
+                }
+              </div>
             </article>
+          } @empty {
+            <p class="empty-state">No live roles currently meet the threshold. Lower the cutoff or ingest more sources.</p>
           }
+        </div>
+
+        <div class="pager-bar">
+          <span>Page {{ matchesPage()?.page ?? 1 }} of {{ matchesPage()?.totalPages ?? 1 }}</span>
+          <div class="pager-actions">
+            <button type="button" class="secondary" (click)="goToMatchesPage((matchesPage()?.page ?? 1) - 1)" [disabled]="(matchesPage()?.page ?? 1) <= 1">
+              Previous
+            </button>
+            <button type="button" class="secondary" (click)="goToMatchesPage((matchesPage()?.page ?? 1) + 1)" [disabled]="(matchesPage()?.page ?? 1) >= (matchesPage()?.totalPages ?? 1)">
+              Next
+            </button>
+          </div>
         </div>
       </section>
 
-      <section class="card section-panel coverage-panel">
+      <section class="card section-panel market-panel">
         <div class="section-headline">
           <div>
-            <p class="eyebrow">Board coverage</p>
-            <h2>Recommended board universe</h2>
+            <p class="eyebrow">Market view</p>
+            <h2>All real jobs with source application URLs</h2>
+            <p class="section-copy">The complete live feed from enabled real connectors, regardless of whether each role currently scores above the shortlist threshold.</p>
           </div>
-          <div class="badge-pill">{{ readyCatalogEntries().length }} targets</div>
+          <div class="badge-pill">{{ liveJobsCount() }} live roles</div>
         </div>
 
-        <div class="sources-grid">
-          @for (entry of readyCatalogEntries(); track trackByCatalog($index, entry)) {
-            <article class="source-card coverage-card">
-              <div class="source-topline">
-                <h3>{{ entry.name }}</h3>
-                <span class="good">{{ entry.status }}</span>
+        <div class="jobs-grid market-grid">
+          @for (job of jobs(); track trackByTitle($index, job)) {
+            <article class="job-card market-card">
+              <div class="job-topline">
+                <span class="job-source-tag neutral-tag">{{ job.sourceName }}</span>
+                <div class="score-chip muted-score">{{ job.matchScore }}%</div>
               </div>
-              <p>{{ entry.integrationMethod }}</p>
-              <p><strong>Access:</strong> {{ entry.access }}</p>
-              <p>{{ entry.notes }}</p>
-              <a [href]="entry.docsUrl" target="_blank" rel="noreferrer">Official docs</a>
+
+              <div class="job-heading">
+                <h3>{{ job.title }}</h3>
+                <p>{{ job.company }} • {{ job.remote ? 'Remote' : job.location }}</p>
+              </div>
+
+              <div class="job-footer">
+                <span>{{ job.employmentType ?? 'Open type' }}</span>
+                @if (job.url) {
+                  <a [href]="job.url" target="_blank" rel="noreferrer">Open listing</a>
+                }
+              </div>
             </article>
+          } @empty {
+            <p class="empty-state">No live source jobs are available yet. Run ingestion after enabling real ATS connectors.</p>
           }
         </div>
-      </section>
-    </section>
 
-    <section class="card section-panel blocked-panel">
-      <div class="section-headline">
-        <div>
-          <p class="eyebrow">Blocked boards</p>
-          <h2>Do not scrape by default</h2>
-          <p class="section-copy">These sources carry policy or legal risk and should stay out of the default live crawler.</p>
+        <div class="pager-bar">
+          <span>Page {{ jobsPage()?.page ?? 1 }} of {{ jobsPage()?.totalPages ?? 1 }}</span>
+          <div class="pager-actions">
+            <button type="button" class="secondary" (click)="goToJobsPage((jobsPage()?.page ?? 1) - 1)" [disabled]="(jobsPage()?.page ?? 1) <= 1">
+              Previous
+            </button>
+            <button type="button" class="secondary" (click)="goToJobsPage((jobsPage()?.page ?? 1) + 1)" [disabled]="(jobsPage()?.page ?? 1) >= (jobsPage()?.totalPages ?? 1)">
+              Next
+            </button>
+          </div>
         </div>
-        <div class="badge-pill">{{ blockedCatalogEntries().length }} restricted</div>
-      </div>
-
-      <div class="sources-grid">
-        @for (entry of blockedCatalogEntries(); track trackByCatalog($index, entry)) {
-          <article class="source-card blocked-card">
-            <div class="source-topline">
-              <h3>{{ entry.name }}</h3>
-              <span class="error-copy">{{ entry.status }}</span>
-            </div>
-            <p>{{ entry.notes }}</p>
-            <a [href]="entry.docsUrl" target="_blank" rel="noreferrer">Policy source</a>
-          </article>
-        }
-      </div>
-    </section>
+      </section>
+    }
   }
 </div>
-
-
-

@@ -1,8 +1,8 @@
+import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
-  AppUser,
+  AuthSession,
   CandidateProfile,
   IngestionSummary,
   JobMatch,
@@ -21,29 +21,45 @@ export class JobPortalApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = this.resolveBaseUrl();
 
-  getUsers() {
-    return firstValueFrom(this.http.get<AppUser[]>(`${this.baseUrl}/users`));
-  }
-
-  createUser(displayName: string, email: string) {
-    return firstValueFrom(this.http.post<AppUser>(`${this.baseUrl}/users`, { displayName, email }));
-  }
-
-  getProfile(userKey: string) {
+  register(displayName: string, email: string, password: string) {
     return firstValueFrom(
-      this.http.get<CandidateProfile>(`${this.baseUrl}/profile`, {
-        params: {
-          userKey,
-        },
+      this.http.post<AuthSession>(`${this.baseUrl}/auth/register`, { displayName, email, password }),
+    );
+  }
+
+  login(email: string, password: string) {
+    return firstValueFrom(this.http.post<AuthSession>(`${this.baseUrl}/auth/login`, { email, password }));
+  }
+
+  getCurrentUser(sessionToken: string) {
+    return firstValueFrom(
+      this.http.get<AuthSession>(`${this.baseUrl}/auth/me`, {
+        headers: this.createAuthHeaders(sessionToken),
       }),
     );
   }
 
-  getJobs(userKey: string, page: number, pageSize: number, realOnly = false) {
+  logout(sessionToken: string) {
+    return firstValueFrom(
+      this.http.post<{ success: boolean }>(`${this.baseUrl}/auth/logout`, {}, {
+        headers: this.createAuthHeaders(sessionToken),
+      }),
+    );
+  }
+
+  getProfile(sessionToken: string) {
+    return firstValueFrom(
+      this.http.get<CandidateProfile>(`${this.baseUrl}/profile`, {
+        headers: this.createAuthHeaders(sessionToken),
+      }),
+    );
+  }
+
+  getJobs(sessionToken: string, page: number, pageSize: number, realOnly = false) {
     return firstValueFrom(
       this.http.get<PaginatedResult<JobMatch>>(`${this.baseUrl}/jobs`, {
+        headers: this.createAuthHeaders(sessionToken),
         params: {
-          userKey,
           page,
           pageSize,
           realOnly,
@@ -52,11 +68,11 @@ export class JobPortalApiService {
     );
   }
 
-  getMatches(userKey: string, threshold: number, page: number, pageSize: number, realOnly = false) {
+  getMatches(sessionToken: string, threshold: number, page: number, pageSize: number, realOnly = false) {
     return firstValueFrom(
       this.http.get<PaginatedResult<JobMatch>>(`${this.baseUrl}/jobs/matches`, {
+        headers: this.createAuthHeaders(sessionToken),
         params: {
-          userKey,
           threshold,
           page,
           pageSize,
@@ -66,34 +82,44 @@ export class JobPortalApiService {
     );
   }
 
-  getSources() {
-    return firstValueFrom(this.http.get<JobSource[]>(`${this.baseUrl}/jobs/sources`));
-  }
-
-  getSourceCatalog() {
-    return firstValueFrom(this.http.get<SourceCatalogEntry[]>(`${this.baseUrl}/jobs/source-catalog`));
-  }
-
-  runIngestion(userKey: string) {
+  getSources(sessionToken: string) {
     return firstValueFrom(
-      this.http.post<IngestionSummary>(`${this.baseUrl}/jobs/ingest/run`, {}, {
-        params: {
-          userKey,
-        },
+      this.http.get<JobSource[]>(`${this.baseUrl}/jobs/sources`, {
+        headers: this.createAuthHeaders(sessionToken),
       }),
     );
   }
 
-  syncResume(userKey: string, file: File) {
+  getSourceCatalog(sessionToken: string) {
+    return firstValueFrom(
+      this.http.get<SourceCatalogEntry[]>(`${this.baseUrl}/jobs/source-catalog`, {
+        headers: this.createAuthHeaders(sessionToken),
+      }),
+    );
+  }
+
+  runIngestion(sessionToken: string) {
+    return firstValueFrom(
+      this.http.post<IngestionSummary>(`${this.baseUrl}/jobs/ingest/run`, {}, {
+        headers: this.createAuthHeaders(sessionToken),
+      }),
+    );
+  }
+
+  syncResume(sessionToken: string, file: File) {
     const formData = new FormData();
     formData.append('file', file);
     return firstValueFrom(
       this.http.post<ResumeSyncResult>(`${this.baseUrl}/jobs/resume-sync`, formData, {
-        params: {
-          userKey,
-        },
+        headers: this.createAuthHeaders(sessionToken),
       }),
     );
+  }
+
+  private createAuthHeaders(sessionToken: string) {
+    return new HttpHeaders({
+      Authorization: `Bearer ${sessionToken}`,
+    });
   }
 
   private resolveBaseUrl() {

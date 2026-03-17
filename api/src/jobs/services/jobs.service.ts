@@ -198,6 +198,16 @@ export class JobsService {
     return source.save();
   }
 
+  private async ensureOwnerMatchesInitialized(ownerKey: string) {
+    const [matchCount, jobCount] = await Promise.all([
+      this.jobMatchModel.countDocuments({ ownerKey }),
+      this.jobPostingModel.countDocuments(),
+    ]);
+
+    if (matchCount === 0 && jobCount > 0) {
+      await this.rescoreOwnerMatches(ownerKey);
+    }
+  }
   private buildMatchFilter(ownerKey: string, options: { threshold?: number; realOnly?: boolean }) {
     const filter: FilterQuery<JobMatchDocument> = {
       ownerKey,
@@ -361,4 +371,5 @@ export class JobsService {
     );
   }
 }
+
 

@@ -13,6 +13,14 @@ export interface AppUser {
   seeded?: boolean;
 }
 
+export interface AuthSession {
+  user: AppUser;
+  session?: {
+    token: string;
+    expiresAt: string;
+  };
+}
+
 export interface CandidateProfile {
   _id?: string;
   id?: string;
