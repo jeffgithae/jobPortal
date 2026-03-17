@@ -16,11 +16,33 @@ export class UsersService {
   ) {}
 
   async ensureStarterUser() {
-    await this.appUserModel.findOneAndUpdate(
-      { ownerKey: DEFAULT_OWNER_KEY },
-      { $setOnInsert: DEMO_USER_SEED },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
+    const demoEmail = DEMO_USER_SEED.email.trim().toLowerCase();
+    const existingStarterUser = await this.appUserModel.findOne({ ownerKey: DEFAULT_OWNER_KEY });
+
+    if (existingStarterUser) {
+      await this.appUserModel.findByIdAndUpdate(existingStarterUser._id, {
+        $set: {
+          displayName: DEMO_USER_SEED.displayName,
+          email: demoEmail,
+          seeded: true,
+        },
+      });
+    } else {
+      await this.appUserModel.findOneAndUpdate(
+        { email: demoEmail },
+        {
+          $setOnInsert: {
+            ...DEMO_USER_SEED,
+            email: demoEmail,
+          },
+          $set: {
+            displayName: DEMO_USER_SEED.displayName,
+            seeded: true,
+          },
+        },
+        { upsert: true, new: true, setDefaultsOnInsert: true },
+      );
+    }
 
     await this.candidateProfileModel.findOneAndUpdate(
       { ownerKey: DEFAULT_OWNER_KEY },
