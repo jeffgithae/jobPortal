@@ -5,6 +5,7 @@ import {
   AuthSession,
   CandidateProfile,
   IngestionSummary,
+  JobFilters,
   JobMatch,
   JobSource,
   PaginatedResult,
@@ -23,6 +24,7 @@ export class App {
   private readonly api = inject(JobPortalApiService);
   private readonly pageSize = 12;
   private readonly sessionStorageKey = 'job-portal-session-token';
+  readonly employmentTypeOptions = ['Full-time', 'Contract', 'Part-time', 'Internship'];
 
   readonly authUser = signal<AppUser | null>(null);
   readonly sessionToken = signal<string | null>(this.readStoredSessionToken());
@@ -38,9 +40,19 @@ export class App {
   readonly isRefreshing = signal(false);
   readonly isUploading = signal(false);
   readonly isAuthenticating = signal(false);
+  readonly isSavingPreferences = signal(false);
   readonly error = signal<string | null>(null);
   readonly jobsPageNumber = signal(1);
   readonly matchesPageNumber = signal(1);
+  readonly searchFilter = signal('');
+  readonly remoteOnlyFilter = signal(false);
+  readonly employmentTypeFilter = signal('');
+  readonly sourceTypeFilter = signal('');
+  readonly locationFilter = signal('');
+  readonly preferredLocationsDraft = signal('');
+  readonly remotePreference = signal(false);
+  readonly hybridPreference = signal(false);
+  readonly onsitePreference = signal(false);
 
   readonly isAuthenticated = computed(() => Boolean(this.sessionToken() && this.authUser()));
   readonly jobs = computed(() => this.jobsPage()?.items ?? []);
@@ -51,6 +63,18 @@ export class App {
   readonly readyCatalogEntries = computed(() => this.sourceCatalog().filter((entry) => entry.status === 'ready' || entry.status === 'next'));
   readonly blockedCatalogEntries = computed(() => this.sourceCatalog().filter((entry) => entry.status === 'avoid'));
   readonly liveJobsCount = computed(() => this.jobsPage()?.total ?? 0);
+  readonly activeFiltersCount = computed(() =>
+    [
+      this.searchFilter().trim(),
+      this.remoteOnlyFilter() ? 'remote' : '',
+      this.employmentTypeFilter().trim(),
+      this.sourceTypeFilter().trim(),
+      this.locationFilter().trim(),
+    ].filter(Boolean).length,
+  );
+  readonly sourceTypeOptions = computed(() =>
+    [...new Set(this.enabledSources().map((source) => source.type).filter((type) => type !== 'mock-curated'))].sort(),
+  );
 
   constructor() {
     if (this.sessionToken()) {
@@ -139,6 +163,11 @@ export class App {
       this.profile.set(profile);
       this.sources.set(sources);
       this.sourceCatalog.set(sourceCatalog);
+      this.syncPreferenceDraft(profile);
+
+      if (this.sourceTypeFilter() && !this.sourceTypeOptions().includes(this.sourceTypeFilter())) {
+        this.sourceTypeFilter.set('');
+      }
 
       await Promise.all([this.loadJobsPage(), this.loadMatchesPage()]);
     } catch (error) {
@@ -178,6 +207,27 @@ export class App {
     }
   }
 
+  async applyFilters() {
+    this.error.set(null);
+    this.jobsPageNumber.set(1);
+    this.matchesPageNumber.set(1);
+
+    try {
+      await Promise.all([this.loadJobsPage(), this.loadMatchesPage()]);
+    } catch (error) {
+      this.error.set(this.getErrorMessage(error));
+    }
+  }
+
+  async resetFilters() {
+    this.searchFilter.set('');
+    this.remoteOnlyFilter.set(false);
+    this.employmentTypeFilter.set('');
+    this.sourceTypeFilter.set('');
+    this.locationFilter.set('');
+    await this.applyFilters();
+  }
+
   onFileSelected(event: Event) {
     const input = event.target as HTMLInputElement;
     this.selectedFile.set(input.files?.[0] ?? null);
@@ -207,11 +257,44 @@ export class App {
       this.jobsPageNumber.set(1);
       this.matchesPageNumber.set(1);
       this.selectedFile.set(null);
+      this.syncPreferenceDraft(result.profile);
       await this.loadDashboard();
     } catch (error) {
       this.error.set(this.getErrorMessage(error));
     } finally {
       this.isUploading.set(false);
+    }
+  }
+
+  async savePreferences() {
+    const sessionToken = this.requireSessionToken();
+    const preferredLocations = this.preferredLocationsDraft()
+      .split(',')
+      .map((entry) => entry.trim())
+      .filter(Boolean);
+    const workPreferences = [
+      this.remotePreference() ? 'remote' : '',
+      this.hybridPreference() ? 'hybrid' : '',
+      this.onsitePreference() ? 'onsite' : '',
+    ].filter(Boolean);
+
+    this.error.set(null);
+    this.isSavingPreferences.set(true);
+
+    try {
+      const profile = await this.api.updateProfile(sessionToken, {
+        preferredLocations,
+        workPreferences,
+      });
+      this.profile.set(profile);
+      await this.api.rescoreMatches(sessionToken);
+      this.jobsPageNumber.set(1);
+      this.matchesPageNumber.set(1);
+      await this.loadDashboard();
+    } catch (error) {
+      this.error.set(this.getErrorMessage(error));
+    } finally {
+      this.isSavingPreferences.set(false);
     }
   }
 
@@ -249,6 +332,21 @@ export class App {
     return item.key;
   }
 
+  formatSourceType(type: string) {
+    switch (type) {
+      case 'greenhouse-board':
+        return 'Greenhouse';
+      case 'lever-postings':
+        return 'Lever';
+      case 'ashby-board':
+        return 'Ashby';
+      case 'djinni-search':
+        return 'Djinni';
+      default:
+        return type;
+    }
+  }
+
   private async bootstrapAuthenticatedApp() {
     const sessionToken = this.sessionToken();
 
@@ -284,15 +382,33 @@ export class App {
   private loadJobsPage() {
     const sessionToken = this.requireSessionToken();
     return this.api
-      .getJobs(sessionToken, this.jobsPageNumber(), this.pageSize, true)
+      .getJobs(sessionToken, this.jobsPageNumber(), this.pageSize, this.buildFilters())
       .then((page) => this.jobsPage.set(page));
   }
 
   private loadMatchesPage() {
     const sessionToken = this.requireSessionToken();
     return this.api
-      .getMatches(sessionToken, this.threshold(), this.matchesPageNumber(), this.pageSize, true)
+      .getMatches(sessionToken, this.threshold(), this.matchesPageNumber(), this.pageSize, this.buildFilters())
       .then((page) => this.matchesPage.set(page));
+  }
+
+  private buildFilters(): JobFilters {
+    return {
+      search: this.searchFilter(),
+      remoteOnly: this.remoteOnlyFilter(),
+      employmentType: this.employmentTypeFilter(),
+      sourceType: this.sourceTypeFilter(),
+      location: this.locationFilter(),
+    };
+  }
+
+  private syncPreferenceDraft(profile: CandidateProfile) {
+    const workPreferences = new Set((profile.workPreferences ?? []).map((entry) => entry.toLowerCase()));
+    this.preferredLocationsDraft.set((profile.preferredLocations ?? []).join(', '));
+    this.remotePreference.set(workPreferences.has('remote'));
+    this.hybridPreference.set(workPreferences.has('hybrid'));
+    this.onsitePreference.set(workPreferences.has('onsite'));
   }
 
   private isSupportedResumeFile(file: File) {
@@ -331,6 +447,15 @@ export class App {
     this.selectedFile.set(null);
     this.jobsPageNumber.set(1);
     this.matchesPageNumber.set(1);
+    this.searchFilter.set('');
+    this.remoteOnlyFilter.set(false);
+    this.employmentTypeFilter.set('');
+    this.sourceTypeFilter.set('');
+    this.locationFilter.set('');
+    this.preferredLocationsDraft.set('');
+    this.remotePreference.set(false);
+    this.hybridPreference.set(false);
+    this.onsitePreference.set(false);
     this.isLoading.set(false);
 
     if (typeof window !== 'undefined') {

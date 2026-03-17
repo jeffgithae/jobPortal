@@ -1,4 +1,4 @@
-﻿export type SourceCatalogEntry = {
+export type SourceCatalogEntry = {
   key: string;
   name: string;
   category: 'ats-api' | 'ats-feed' | 'hosted-career-site' | 'aggregator';
@@ -20,7 +20,7 @@ export const SOURCE_CATALOG: SourceCatalogEntry[] = [
     recommended: true,
     status: 'ready',
     docsUrl: 'https://developer.greenhouse.io/job-board.html',
-    notes: 'Best first-class connector. Public GET access for published jobs, with stable JSON and predictable board tokens.',
+    notes: 'Stable public JSON job-board API with strong coverage across tech employers.',
   },
   {
     key: 'lever',
@@ -31,18 +31,29 @@ export const SOURCE_CATALOG: SourceCatalogEntry[] = [
     recommended: true,
     status: 'ready',
     docsUrl: 'https://github.com/lever/postings-api',
-    notes: 'High-value connector for startup and growth-company roles. Public postings are accessible without employer credentials.',
+    notes: 'High-value source for startup and scale-up roles through public company posting feeds.',
   },
   {
     key: 'ashby',
-    name: 'Ashby Job Postings API',
+    name: 'Ashby Public Job Board',
     category: 'ats-api',
-    integrationMethod: 'Public job-board endpoint per Ashby board',
+    integrationMethod: 'Public non-user GraphQL board endpoint per hosted jobs page',
     access: 'public',
     recommended: true,
-    status: 'next',
+    status: 'ready',
     docsUrl: 'https://developers.ashbyhq.com/docs/public-job-posting-api',
-    notes: 'Strong candidate for the next connector. Modern API and clean published job payloads.',
+    notes: 'Now implemented as a first-class connector for public Ashby-hosted job boards.',
+  },
+  {
+    key: 'djinni',
+    name: 'Djinni Public Jobs',
+    category: 'aggregator',
+    integrationMethod: 'HTML search-page crawl plus structured-data extraction from public job pages',
+    access: 'public',
+    recommended: true,
+    status: 'ready',
+    docsUrl: 'https://djinni.co/jobs/l-intl/',
+    notes: 'Useful public job-market source, but HTML structure can drift faster than ATS APIs.',
   },
   {
     key: 'smartrecruiters',

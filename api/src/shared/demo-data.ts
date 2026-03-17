@@ -123,6 +123,17 @@ export const DEFAULT_SOURCE_SEEDS = [
     }
   },
   {
+    name: 'Flo Health Jobs (Greenhouse)',
+    type: 'greenhouse-board',
+    enabled: true,
+    runCron: DEFAULT_INGEST_CRON,
+    timeZone: DEFAULT_INGEST_TIMEZONE,
+    config: {
+      boardToken: 'flohealth',
+      company: 'Flo Health'
+    }
+  },
+  {
     name: 'Revefi Jobs (Lever)',
     type: 'lever-postings',
     enabled: true,
@@ -145,14 +156,27 @@ export const DEFAULT_SOURCE_SEEDS = [
     }
   },
   {
-    name: 'Flo Health Jobs (Greenhouse)',
-    type: 'greenhouse-board',
+    name: 'Quora Jobs (Ashby)',
+    type: 'ashby-board',
     enabled: true,
     runCron: DEFAULT_INGEST_CRON,
     timeZone: DEFAULT_INGEST_TIMEZONE,
     config: {
-      boardToken: 'flohealth',
-      company: 'Flo Health'
+      organizationHostedJobsPageName: 'quora',
+      company: 'Quora'
+    }
+  },
+  {
+    name: 'Djinni International Jobs',
+    type: 'djinni-search',
+    enabled: true,
+    runCron: DEFAULT_INGEST_CRON,
+    timeZone: DEFAULT_INGEST_TIMEZONE,
+    config: {
+      listingUrl: 'https://djinni.co/jobs/l-intl/',
+      company: 'Djinni',
+      pages: 1,
+      maxJobs: 30
     }
   },
   {
@@ -175,6 +199,30 @@ export const DEFAULT_SOURCE_SEEDS = [
     config: {
       companySlug: 'replace-with-lever-company-slug',
       company: 'Target Company'
+    }
+  },
+  {
+    name: 'Ashby Connector Template',
+    type: 'ashby-board',
+    enabled: false,
+    runCron: DEFAULT_INGEST_CRON,
+    timeZone: DEFAULT_INGEST_TIMEZONE,
+    config: {
+      organizationHostedJobsPageName: 'replace-with-ashby-hosted-jobs-page',
+      company: 'Target Company'
+    }
+  },
+  {
+    name: 'Djinni Connector Template',
+    type: 'djinni-search',
+    enabled: false,
+    runCron: DEFAULT_INGEST_CRON,
+    timeZone: DEFAULT_INGEST_TIMEZONE,
+    config: {
+      listingUrl: 'https://djinni.co/jobs/l-intl/',
+      company: 'Djinni',
+      pages: 1,
+      maxJobs: 30
     }
   }
 ];
@@ -295,4 +343,5 @@ export const DEMO_CURATED_JOBS = [
     seniority: 'senior'
   }
 ];
+
 

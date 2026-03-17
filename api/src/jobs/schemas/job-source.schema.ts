@@ -1,7 +1,7 @@
-﻿import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Schema as MongooseSchema } from 'mongoose';
 
-export const JOB_SOURCE_TYPES = ['mock-curated', 'greenhouse-board', 'lever-postings'] as const;
+export const JOB_SOURCE_TYPES = ['mock-curated', 'greenhouse-board', 'lever-postings', 'ashby-board', 'djinni-search'] as const;
 export type JobSourceType = (typeof JOB_SOURCE_TYPES)[number];
 export type JobSourceDocument = HydratedDocument<JobSource>;
 
@@ -36,3 +36,4 @@ export class JobSource {
 }
 
 export const JobSourceSchema = SchemaFactory.createForClass(JobSource);
+

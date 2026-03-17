@@ -1,4 +1,4 @@
-ï»¿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { CandidateProfileDocument } from '../../candidate/schemas/candidate-profile.schema';
 import { NormalizedJobListing } from '../source-adapters/job-source-adapter.interface';
 
@@ -26,12 +26,13 @@ export class MatchingService {
     const domainScore = this.scoreDomainAlignment(candidateProfile, job);
     const locationScore = this.scoreLocation(candidateProfile, job.location, job.remote);
     const totalScore = titleScore + skillScore + experienceScore + seniorityScore + domainScore + locationScore;
+    const workplaceType = this.resolveWorkplaceType(job.location, job.remote);
 
     const reasons = [
       matchedSkills.length ? `${matchedSkills.length} aligned core skills: ${matchedSkills.slice(0, 5).join(', ')}` : undefined,
       titleScore >= 14 ? `Target-role alignment is strong for "${job.title}".` : undefined,
       experienceScore >= 12 ? 'Experience fit is solid for the stated seniority and years required.' : undefined,
-      locationScore >= 8 ? `Location preference matches (${job.remote ? 'remote' : job.location}).` : undefined,
+      locationScore >= 8 ? `Workplace preference aligns (${workplaceType}${job.location ? ` • ${job.location}` : ''}).` : undefined,
       domainScore >= 8 ? 'Domain overlap detected across architecture, leadership, and delivery.' : undefined,
     ].filter((reason): reason is string => Boolean(reason));
 
@@ -128,20 +129,51 @@ export class MatchingService {
   }
 
   private scoreLocation(candidateProfile: CandidateProfileDocument, location?: string, remote?: boolean) {
-    if (remote) {
-      return 10;
+    const normalizedPreferences = new Set((candidateProfile.workPreferences ?? []).map((value) => value.toLowerCase()));
+    const workplaceType = this.resolveWorkplaceType(location, remote);
+    let score = 4;
+
+    if (!normalizedPreferences.size) {
+      score = workplaceType === 'remote' ? 10 : 7;
+    } else if (normalizedPreferences.has(workplaceType)) {
+      score = 10;
+    } else if (workplaceType === 'hybrid' && normalizedPreferences.has('remote')) {
+      score = 8;
+    } else if (workplaceType === 'remote' && normalizedPreferences.has('hybrid')) {
+      score = 8;
+    } else if (workplaceType === 'onsite' && normalizedPreferences.has('hybrid')) {
+      score = 6;
+    } else if (workplaceType === 'onsite' && normalizedPreferences.has('remote') && !normalizedPreferences.has('onsite')) {
+      score = 2;
     }
 
     const preferredLocations = candidateProfile.preferredLocations.map((value) => value.toLowerCase());
     const normalizedLocation = location?.toLowerCase() ?? '';
 
     if (preferredLocations.some((value) => normalizedLocation.includes(value))) {
-      return 10;
-    }
-    if (normalizedLocation.includes('kenya') || normalizedLocation.includes('nairobi')) {
-      return 8;
+      score = Math.max(score, 10);
+    } else if (normalizedLocation.includes('kenya') || normalizedLocation.includes('nairobi')) {
+      score = Math.max(score, 8);
     }
 
-    return 4;
+    return score;
+  }
+
+  private resolveWorkplaceType(location?: string, remote?: boolean) {
+    if (remote) {
+      return 'remote';
+    }
+
+    const normalizedLocation = location?.toLowerCase() ?? '';
+
+    if (normalizedLocation.includes('hybrid')) {
+      return 'hybrid';
+    }
+
+    if (normalizedLocation.includes('remote')) {
+      return 'remote';
+    }
+
+    return 'onsite';
   }
 }

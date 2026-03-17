@@ -5,6 +5,7 @@ import {
   AuthSession,
   CandidateProfile,
   IngestionSummary,
+  JobFilters,
   JobMatch,
   JobSource,
   PaginatedResult,
@@ -55,28 +56,30 @@ export class JobPortalApiService {
     );
   }
 
-  getJobs(sessionToken: string, page: number, pageSize: number, realOnly = false) {
+  updateProfile(sessionToken: string, payload: Partial<Pick<CandidateProfile, 'preferredLocations' | 'workPreferences'>>) {
     return firstValueFrom(
-      this.http.get<PaginatedResult<JobMatch>>(`${this.baseUrl}/jobs`, {
+      this.http.patch<CandidateProfile>(`${this.baseUrl}/profile`, payload, {
         headers: this.createAuthHeaders(sessionToken),
-        params: {
-          page,
-          pageSize,
-          realOnly,
-        },
       }),
     );
   }
 
-  getMatches(sessionToken: string, threshold: number, page: number, pageSize: number, realOnly = false) {
+  getJobs(sessionToken: string, page: number, pageSize: number, filters: Partial<JobFilters> = {}) {
+    return firstValueFrom(
+      this.http.get<PaginatedResult<JobMatch>>(`${this.baseUrl}/jobs`, {
+        headers: this.createAuthHeaders(sessionToken),
+        params: this.buildJobParams(page, pageSize, filters),
+      }),
+    );
+  }
+
+  getMatches(sessionToken: string, threshold: number, page: number, pageSize: number, filters: Partial<JobFilters> = {}) {
     return firstValueFrom(
       this.http.get<PaginatedResult<JobMatch>>(`${this.baseUrl}/jobs/matches`, {
         headers: this.createAuthHeaders(sessionToken),
         params: {
           threshold,
-          page,
-          pageSize,
-          realOnly,
+          ...this.buildJobParams(page, pageSize, filters),
         },
       }),
     );
@@ -106,6 +109,14 @@ export class JobPortalApiService {
     );
   }
 
+  rescoreMatches(sessionToken: string) {
+    return firstValueFrom(
+      this.http.post<{ ownerKey: string; rescoredJobs: number; threshold: number }>(`${this.baseUrl}/jobs/rescore`, {}, {
+        headers: this.createAuthHeaders(sessionToken),
+      }),
+    );
+  }
+
   syncResume(sessionToken: string, file: File) {
     const formData = new FormData();
     formData.append('file', file);
@@ -120,6 +131,19 @@ export class JobPortalApiService {
     return new HttpHeaders({
       Authorization: `Bearer ${sessionToken}`,
     });
+  }
+
+  private buildJobParams(page: number, pageSize: number, filters: Partial<JobFilters>) {
+    return {
+      page,
+      pageSize,
+      realOnly: true,
+      remoteOnly: filters.remoteOnly ?? false,
+      search: filters.search?.trim() ?? '',
+      employmentType: filters.employmentType?.trim() ?? '',
+      sourceType: filters.sourceType?.trim() ?? '',
+      location: filters.location?.trim() ?? '',
+    };
   }
 
   private resolveBaseUrl() {

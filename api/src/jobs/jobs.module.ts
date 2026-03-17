@@ -6,6 +6,8 @@ import { JobsController } from './jobs.controller';
 import { JobMatch, JobMatchSchema } from './schemas/job-match.schema';
 import { JobPosting, JobPostingSchema } from './schemas/job-posting.schema';
 import { JobSource, JobSourceSchema } from './schemas/job-source.schema';
+import { AshbyBoardAdapter } from './source-adapters/ashby-board.adapter';
+import { DjinniSearchAdapter } from './source-adapters/djinni-search.adapter';
 import { GreenhouseBoardAdapter } from './source-adapters/greenhouse-board.adapter';
 import { LeverPostingsAdapter } from './source-adapters/lever-postings.adapter';
 import { MockCuratedAdapter } from './source-adapters/mock-curated.adapter';
@@ -42,6 +44,8 @@ import { JobSourceRegistryService } from './services/job-source-registry.service
     MockCuratedAdapter,
     GreenhouseBoardAdapter,
     LeverPostingsAdapter,
+    AshbyBoardAdapter,
+    DjinniSearchAdapter,
   ],
   exports: [JobsService],
 })

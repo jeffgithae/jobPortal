@@ -1,5 +1,7 @@
-﻿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { JobSourceType } from '../schemas/job-source.schema';
+import { AshbyBoardAdapter } from '../source-adapters/ashby-board.adapter';
+import { DjinniSearchAdapter } from '../source-adapters/djinni-search.adapter';
 import { GreenhouseBoardAdapter } from '../source-adapters/greenhouse-board.adapter';
 import { JobSourceAdapter } from '../source-adapters/job-source-adapter.interface';
 import { LeverPostingsAdapter } from '../source-adapters/lever-postings.adapter';
@@ -11,6 +13,8 @@ export class JobSourceRegistryService {
     private readonly mockCuratedAdapter: MockCuratedAdapter,
     private readonly greenhouseBoardAdapter: GreenhouseBoardAdapter,
     private readonly leverPostingsAdapter: LeverPostingsAdapter,
+    private readonly ashbyBoardAdapter: AshbyBoardAdapter,
+    private readonly djinniSearchAdapter: DjinniSearchAdapter,
   ) {}
 
   getAdapter(type: JobSourceType): JobSourceAdapter {
@@ -21,6 +25,10 @@ export class JobSourceRegistryService {
         return this.greenhouseBoardAdapter;
       case 'lever-postings':
         return this.leverPostingsAdapter;
+      case 'ashby-board':
+        return this.ashbyBoardAdapter;
+      case 'djinni-search':
+        return this.djinniSearchAdapter;
       default:
         throw new Error(`Unsupported job source type: ${type}`);
     }

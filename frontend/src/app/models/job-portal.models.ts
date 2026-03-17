@@ -45,6 +45,14 @@ export interface CandidateProfile {
   resumeUpdatedAt?: string;
 }
 
+export interface JobFilters {
+  search: string;
+  remoteOnly: boolean;
+  employmentType: string;
+  sourceType: string;
+  location: string;
+}
+
 export interface JobMatch {
   _id?: string;
   id?: string;

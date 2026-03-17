@@ -24,7 +24,7 @@
           <article class="note-card">
             <span class="signal-label">Live ATS sources</span>
             <strong>Direct application links</strong>
-            <p>Track public Greenhouse and Lever roles without mixing candidate scoring across users.</p>
+            <p>Track public Greenhouse, Lever, Ashby, and Djinni roles without mixing candidate scoring across users.</p>
           </article>
         </div>
       </div>
@@ -81,7 +81,7 @@
         <p class="eyebrow">Authenticated workspace</p>
         <h1>Resume-first job discovery with live boards, match scoring, and direct apply links.</h1>
         <p class="hero-text">
-          Your dashboard is private to your account. Upload a resume, refresh live ATS sources, and review only the jobs scored for {{ authUser()?.displayName }}.
+          Your dashboard is private to your account. Upload a resume, refresh live ATS sources, tune your preferences, and review only the jobs scored for {{ authUser()?.displayName }}.
         </p>
 
         <div class="member-ribbon content-block">
@@ -183,6 +183,27 @@
                 }
               </div>
             </section>
+
+            <section class="content-block">
+              <div class="block-head">
+                <h3>Work preferences</h3>
+                <span>Used in scoring</span>
+              </div>
+              <div class="chip-wrap">
+                @for (preference of profile()?.workPreferences ?? []; track preference) {
+                  <span class="chip chip-emphasis">{{ preference }}</span>
+                } @empty {
+                  <span class="chip">No workplace preference saved</span>
+                }
+              </div>
+              <div class="chip-wrap top-gap">
+                @for (location of profile()?.preferredLocations ?? []; track location) {
+                  <span class="chip">{{ location }}</span>
+                } @empty {
+                  <span class="chip">No preferred locations saved</span>
+                }
+              </div>
+            </section>
           </div>
         </article>
 
@@ -191,7 +212,7 @@
             <div>
               <p class="eyebrow">Command center</p>
               <h2>Control ingestion and scoring</h2>
-              <p class="section-copy">Refresh live sources, upload a newer resume, or tighten the shortlist threshold for your account.</p>
+              <p class="section-copy">Refresh live sources, upload a newer resume, update your preferences, or tighten the shortlist threshold for your account.</p>
             </div>
           </div>
 
@@ -199,6 +220,86 @@
             <span>Hiring confidence threshold</span>
             <input #thresholdInput type="number" min="50" max="100" [value]="threshold()" (change)="refreshMatchesForThreshold(thresholdInput.value)" />
           </label>
+
+          <section class="status-panel preference-panel">
+            <div class="block-head">
+              <h3>Job preferences</h3>
+              <span>Saved per user</span>
+            </div>
+
+            <label class="field-panel">
+              <span>Preferred locations</span>
+              <input type="text" [value]="preferredLocationsDraft()" (input)="preferredLocationsDraft.set(preferredLocationsInput.value)" #preferredLocationsInput placeholder="Remote, Nairobi, Berlin" />
+            </label>
+
+            <div class="toggle-grid">
+              <label class="check-chip">
+                <input type="checkbox" [checked]="remotePreference()" (change)="remotePreference.set(remotePreferenceInput.checked)" #remotePreferenceInput />
+                <span>Remote</span>
+              </label>
+              <label class="check-chip">
+                <input type="checkbox" [checked]="hybridPreference()" (change)="hybridPreference.set(hybridPreferenceInput.checked)" #hybridPreferenceInput />
+                <span>Hybrid</span>
+              </label>
+              <label class="check-chip">
+                <input type="checkbox" [checked]="onsitePreference()" (change)="onsitePreference.set(onsitePreferenceInput.checked)" #onsitePreferenceInput />
+                <span>On-site</span>
+              </label>
+            </div>
+
+            <button type="button" class="secondary" (click)="savePreferences()" [disabled]="isSavingPreferences()">
+              {{ isSavingPreferences() ? 'Saving preferences...' : 'Save preferences and rescore' }}
+            </button>
+          </section>
+
+          <section class="status-panel filters-panel">
+            <div class="block-head">
+              <h3>Live filters</h3>
+              <span>{{ activeFiltersCount() }} active</span>
+            </div>
+
+            <div class="filter-grid">
+              <label class="field-panel filter-span-2">
+                <span>Keyword</span>
+                <input type="text" [value]="searchFilter()" (input)="searchFilter.set(searchInput.value)" #searchInput placeholder="Angular, backend, data, architect" />
+              </label>
+
+              <label class="field-panel">
+                <span>Employment type</span>
+                <select [value]="employmentTypeFilter()" (change)="employmentTypeFilter.set(employmentTypeInput.value)" #employmentTypeInput>
+                  <option value="">Any</option>
+                  @for (employmentType of employmentTypeOptions; track employmentType) {
+                    <option [value]="employmentType">{{ employmentType }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="field-panel">
+                <span>Source platform</span>
+                <select [value]="sourceTypeFilter()" (change)="sourceTypeFilter.set(sourceTypeInput.value)" #sourceTypeInput>
+                  <option value="">Any</option>
+                  @for (sourceType of sourceTypeOptions(); track sourceType) {
+                    <option [value]="sourceType">{{ formatSourceType(sourceType) }}</option>
+                  }
+                </select>
+              </label>
+
+              <label class="field-panel filter-span-2">
+                <span>Location contains</span>
+                <input type="text" [value]="locationFilter()" (input)="locationFilter.set(locationInput.value)" #locationInput placeholder="Kenya, EU, Africa, Remote" />
+              </label>
+            </div>
+
+            <label class="check-chip standalone-check">
+              <input type="checkbox" [checked]="remoteOnlyFilter()" (change)="remoteOnlyFilter.set(remoteOnlyInput.checked)" #remoteOnlyInput />
+              <span>Remote jobs only</span>
+            </label>
+
+            <div class="inline-actions">
+              <button type="button" class="secondary" (click)="resetFilters()">Reset filters</button>
+              <button type="button" (click)="applyFilters()">Apply filters</button>
+            </div>
+          </section>
 
           <div class="action-stack">
             <button type="button" (click)="runIngestion()" [disabled]="isRefreshing()">
@@ -256,7 +357,7 @@
           <div>
             <p class="eyebrow">Priority shortlist</p>
             <h2>Real jobs at {{ threshold() }}% or higher</h2>
-            <p class="section-copy">This list only contains live ATS roles that clear your current hiring-confidence threshold.</p>
+            <p class="section-copy">This list only contains live ATS roles that clear your current hiring-confidence threshold after the active filters are applied.</p>
           </div>
           <div class="badge-pill">{{ recommendedCount() }} roles</div>
         </div>
@@ -309,7 +410,7 @@
               </div>
             </article>
           } @empty {
-            <p class="empty-state">No live roles currently meet the threshold. Lower the cutoff or ingest more sources.</p>
+            <p class="empty-state">No live roles currently meet the threshold and filters. Lower the cutoff, relax filters, or ingest more sources.</p>
           }
         </div>
 
@@ -331,7 +432,7 @@
           <div>
             <p class="eyebrow">Market view</p>
             <h2>All real jobs with source application URLs</h2>
-            <p class="section-copy">The complete live feed from enabled real connectors, regardless of whether each role currently scores above the shortlist threshold.</p>
+            <p class="section-copy">The complete live feed from enabled real connectors after the active filters are applied, regardless of whether each role currently scores above the shortlist threshold.</p>
           </div>
           <div class="badge-pill">{{ liveJobsCount() }} live roles</div>
         </div>
@@ -357,7 +458,7 @@
               </div>
             </article>
           } @empty {
-            <p class="empty-state">No live source jobs are available yet. Run ingestion after enabling real ATS connectors.</p>
+            <p class="empty-state">No live source jobs match the current filters. Reset filters or run ingestion again.</p>
           }
         </div>
 
@@ -371,6 +472,20 @@
               Next
             </button>
           </div>
+        </div>
+      </section>
+
+      <section class="card support-panel">
+        <div>
+          <p class="eyebrow">Support the build</p>
+          <h2>Buy me a coffee</h2>
+          <p class="section-copy">
+            If this workspace helps you discover strong-fit roles faster, you can support continued improvements, new ATS connectors, and better scoring.
+          </p>
+        </div>
+        <div class="support-actions">
+          <a class="support-link" href="https://www.buymeacoffee.com/" target="_blank" rel="noreferrer">Open Buy Me a Coffee</a>
+          <span>Replace this link with your own creator page before production.</span>
         </div>
       </section>
     }

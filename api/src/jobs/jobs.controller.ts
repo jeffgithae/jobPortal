@@ -36,11 +36,21 @@ export class JobsController {
     pageSize: number,
     @Req() request: Request & { user: AppUserDocument },
     @Query('realOnly') realOnly?: string,
+    @Query('remoteOnly') remoteOnly?: string,
+    @Query('search') search?: string,
+    @Query('employmentType') employmentType?: string,
+    @Query('sourceType') sourceType?: string,
+    @Query('location') location?: string,
   ) {
     return this.jobsService.getAllJobs(request.user.ownerKey, {
       page,
       pageSize,
       realOnly: realOnly === 'true',
+      remoteOnly: remoteOnly === 'true',
+      search,
+      employmentType,
+      sourceType,
+      location,
     });
   }
 
@@ -54,12 +64,22 @@ export class JobsController {
     pageSize: number,
     @Req() request: Request & { user: AppUserDocument },
     @Query('realOnly') realOnly?: string,
+    @Query('remoteOnly') remoteOnly?: string,
+    @Query('search') search?: string,
+    @Query('employmentType') employmentType?: string,
+    @Query('sourceType') sourceType?: string,
+    @Query('location') location?: string,
   ) {
     return this.jobsService.getMatches(request.user.ownerKey, {
       threshold,
       page,
       pageSize,
       realOnly: realOnly === 'true',
+      remoteOnly: remoteOnly === 'true',
+      search,
+      employmentType,
+      sourceType,
+      location,
     });
   }
 
@@ -81,6 +101,11 @@ export class JobsController {
   @Post('ingest/run')
   runManualIngestion(@Req() request: Request & { user: AppUserDocument }) {
     return this.jobsService.runManualIngestion(request.user.ownerKey);
+  }
+
+  @Post('rescore')
+  rescoreMatches(@Req() request: Request & { user: AppUserDocument }) {
+    return this.jobsService.rescoreForOwner(request.user.ownerKey);
   }
 
   @Post('resume-sync')

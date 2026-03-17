@@ -16,10 +16,18 @@ import { JobIntelligenceService } from './job-intelligence.service';
 import { MatchingService } from './matching.service';
 import { JobSourceRegistryService } from './job-source-registry.service';
 
-interface PaginatedQueryOptions {
+interface JobFilterOptions {
+  realOnly?: boolean;
+  remoteOnly?: boolean;
+  search?: string;
+  employmentType?: string;
+  sourceType?: string;
+  location?: string;
+}
+
+interface PaginatedQueryOptions extends JobFilterOptions {
   page?: number;
   pageSize?: number;
-  realOnly?: boolean;
 }
 
 interface MatchQueryOptions extends PaginatedQueryOptions {
@@ -147,6 +155,16 @@ export class JobsService {
     return this.ingestEnabledSources(ownerKey);
   }
 
+  async rescoreForOwner(ownerKey = DEFAULT_OWNER_KEY) {
+    const rescoredJobs = await this.rescoreOwnerMatches(ownerKey);
+
+    return {
+      ownerKey,
+      rescoredJobs,
+      threshold: DEFAULT_MATCH_THRESHOLD,
+    };
+  }
+
   async rescoreOwnerMatches(ownerKey = DEFAULT_OWNER_KEY) {
     const [profile, jobs] = await Promise.all([
       this.candidateProfileService.getPrimaryProfile(ownerKey),
@@ -164,20 +182,22 @@ export class JobsService {
 
   async getAllJobs(ownerKey = DEFAULT_OWNER_KEY, options: PaginatedQueryOptions = {}) {
     await this.candidateProfileService.getPrimaryProfile(ownerKey);
+    await this.ensureOwnerMatchesInitialized(ownerKey);
 
     const pagination = this.normalizePagination(options.page, options.pageSize);
-    const filter = this.buildMatchFilter(ownerKey, { realOnly: options.realOnly });
+    const filter = this.buildMatchFilter(ownerKey, options);
 
     return this.paginateMatches(filter, pagination.page, pagination.pageSize);
   }
 
   async getMatches(ownerKey = DEFAULT_OWNER_KEY, options: MatchQueryOptions = {}) {
     await this.candidateProfileService.getPrimaryProfile(ownerKey);
+    await this.ensureOwnerMatchesInitialized(ownerKey);
 
     const pagination = this.normalizePagination(options.page, options.pageSize);
     const filter = this.buildMatchFilter(ownerKey, {
+      ...options,
       threshold: options.threshold ?? DEFAULT_MATCH_THRESHOLD,
-      realOnly: options.realOnly,
     });
 
     return this.paginateMatches(filter, pagination.page, pagination.pageSize);
@@ -208,7 +228,8 @@ export class JobsService {
       await this.rescoreOwnerMatches(ownerKey);
     }
   }
-  private buildMatchFilter(ownerKey: string, options: { threshold?: number; realOnly?: boolean }) {
+
+  private buildMatchFilter(ownerKey: string, options: { threshold?: number } & JobFilterOptions) {
     const filter: FilterQuery<JobMatchDocument> = {
       ownerKey,
     };
@@ -223,6 +244,32 @@ export class JobsService {
       filter.sourceType = {
         $ne: 'mock-curated',
       };
+    }
+
+    if (options.remoteOnly) {
+      filter.remote = true;
+    }
+
+    if (options.sourceType?.trim()) {
+      filter.sourceType = options.sourceType.trim();
+    }
+
+    if (options.employmentType?.trim()) {
+      filter.employmentType = new RegExp(this.escapeRegex(options.employmentType.trim()), 'i');
+    }
+
+    if (options.location?.trim()) {
+      filter.location = new RegExp(this.escapeRegex(options.location.trim()), 'i');
+    }
+
+    if (options.search?.trim()) {
+      const searchRegex = new RegExp(this.escapeRegex(options.search.trim()), 'i');
+      filter.$or = [
+        { title: searchRegex },
+        { company: searchRegex },
+        { location: searchRegex },
+        { skills: searchRegex },
+      ];
     }
 
     return filter;
@@ -370,6 +417,8 @@ export class JobsService {
       { upsert: true, new: true, setDefaultsOnInsert: true },
     );
   }
+
+  private escapeRegex(value: string) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  }
 }
-
-
