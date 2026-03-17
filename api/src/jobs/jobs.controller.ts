@@ -41,6 +41,7 @@ export class JobsController {
     @Query('employmentType') employmentType?: string,
     @Query('sourceType') sourceType?: string,
     @Query('location') location?: string,
+    @Query('excludeThreshold') excludeThreshold?: string,
   ) {
     return this.jobsService.getAllJobs(request.user.ownerKey, {
       page,
@@ -51,6 +52,7 @@ export class JobsController {
       employmentType,
       sourceType,
       location,
+      excludeThreshold: excludeThreshold ? Number(excludeThreshold) : undefined,
     });
   }
 
@@ -124,4 +126,5 @@ export class JobsController {
     };
   }
 }
+
 

@@ -400,6 +400,7 @@ export class App {
       employmentType: this.employmentTypeFilter(),
       sourceType: this.sourceTypeFilter(),
       location: this.locationFilter(),
+      excludeThreshold: this.threshold(),
     };
   }
 
@@ -495,4 +496,5 @@ export class App {
     return 'The dashboard could not reach the API. Start the Nest server and MongoDB, then refresh.';
   }
 }
+
 

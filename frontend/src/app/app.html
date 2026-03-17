@@ -450,6 +450,23 @@
                 <p>{{ job.company }} • {{ job.remote ? 'Remote' : job.location }}</p>
               </div>
 
+              @if (job.description) {
+                <p class="market-description">{{ job.description }}</p>
+              }
+
+              @if (job.matchScore < 100) {
+                <section class="missing-panel">
+                  <h4>Missing for 100% match</h4>
+                  <ul>
+                    @for (gap of job.missingRequirements; track gap) {
+                      <li>{{ gap }}</li>
+                    } @empty {
+                      <li>No specific missing requirements were extracted.</li>
+                    }
+                  </ul>
+                </section>
+              }
+
               <div class="job-footer">
                 <span>{{ job.employmentType ?? 'Open type' }}</span>
                 @if (job.url) {

@@ -23,6 +23,7 @@ interface JobFilterOptions {
   employmentType?: string;
   sourceType?: string;
   location?: string;
+  excludeThreshold?: number;
 }
 
 interface PaginatedQueryOptions extends JobFilterOptions {
@@ -238,6 +239,10 @@ export class JobsService {
       filter.matchScore = {
         $gte: options.threshold,
       };
+    } else if (typeof options.excludeThreshold === 'number') {
+      filter.matchScore = {
+        $lt: options.excludeThreshold,
+      };
     }
 
     if (options.realOnly) {
@@ -422,4 +427,5 @@ export class JobsService {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }
+
 

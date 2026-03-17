@@ -51,6 +51,7 @@ export interface JobFilters {
   employmentType: string;
   sourceType: string;
   location: string;
+  excludeThreshold?: number;
 }
 
 export interface JobMatch {
@@ -63,6 +64,7 @@ export interface JobMatch {
   remote: boolean;
   employmentType?: string;
   url?: string;
+  description?: string;
   skills: string[];
   matchScore: number;
   matchReasons: string[];
@@ -129,5 +131,3 @@ export interface ResumeSyncResult {
   profile: CandidateProfile;
   ingestionSummary: IngestionSummary;
 }
-
-

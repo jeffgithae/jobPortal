@@ -143,6 +143,7 @@ export class JobPortalApiService {
       employmentType: filters.employmentType?.trim() ?? '',
       sourceType: filters.sourceType?.trim() ?? '',
       location: filters.location?.trim() ?? '',
+      excludeThreshold: filters.excludeThreshold ?? '',
     };
   }
 
@@ -163,4 +164,3 @@ export class JobPortalApiService {
     return 'http://localhost:3001/api';
   }
 }
-
