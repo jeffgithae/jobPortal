@@ -129,3 +129,5 @@ export interface ResumeSyncResult {
   profile: CandidateProfile;
   ingestionSummary: IngestionSummary;
 }
+
+

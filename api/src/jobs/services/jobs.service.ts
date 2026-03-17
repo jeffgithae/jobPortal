@@ -422,3 +422,4 @@ export class JobsService {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }
+

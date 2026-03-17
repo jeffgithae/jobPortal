@@ -62,3 +62,4 @@ export class JobMatch {
 
 export const JobMatchSchema = SchemaFactory.createForClass(JobMatch);
 JobMatchSchema.index({ ownerKey: 1, sourceJobKey: 1 }, { unique: true });
+
