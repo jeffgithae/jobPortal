@@ -1,5 +1,6 @@
-﻿import { Body, Controller, Get, Patch, Post, UploadedFile, UseInterceptors } from '@nestjs/common';
+import { Body, Controller, DefaultValuePipe, Get, Patch, Post, Query, UploadedFile, UseInterceptors } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { DEFAULT_OWNER_KEY } from '../shared/system-defaults';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { CandidateProfileService } from './services/candidate-profile.service';
 
@@ -8,13 +9,16 @@ export class CandidateController {
   constructor(private readonly candidateProfileService: CandidateProfileService) {}
 
   @Get()
-  getProfile() {
-    return this.candidateProfileService.getPrimaryProfile();
+  getProfile(@Query('userKey', new DefaultValuePipe(DEFAULT_OWNER_KEY)) userKey: string) {
+    return this.candidateProfileService.getPrimaryProfile(userKey);
   }
 
   @Patch()
-  updateProfile(@Body() updateProfileDto: UpdateProfileDto) {
-    return this.candidateProfileService.updatePrimaryProfile(updateProfileDto);
+  updateProfile(
+    @Body() updateProfileDto: UpdateProfileDto,
+    @Query('userKey', new DefaultValuePipe(DEFAULT_OWNER_KEY)) userKey: string,
+  ) {
+    return this.candidateProfileService.updatePrimaryProfile(updateProfileDto, userKey);
   }
 
   @Post('resume/upload')
@@ -22,7 +26,8 @@ export class CandidateController {
   uploadResume(
     @UploadedFile()
     file: { buffer: Buffer; mimetype?: string; originalname?: string },
+    @Query('userKey', new DefaultValuePipe(DEFAULT_OWNER_KEY)) userKey: string,
   ) {
-    return this.candidateProfileService.uploadResume(file);
+    return this.candidateProfileService.uploadResume(file, userKey);
   }
 }

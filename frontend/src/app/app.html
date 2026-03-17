@@ -6,6 +6,38 @@
       <p class="hero-text">
         Track real ATS sources, prioritize jobs you are most likely to land, and keep the full live market one page away.
       </p>
+
+      <div class="user-workspace content-block">
+        <div class="block-head">
+          <h3>User workspace</h3>
+          <span>{{ users().length }} active profiles</span>
+        </div>
+
+        <label class="field-panel">
+          <span>Selected user</span>
+          <select #userSelect [value]="activeUserKey()" (change)="switchUser(userSelect.value)">
+            @for (user of users(); track trackByUser($index, user)) {
+              <option [value]="user.ownerKey">{{ user.displayName }} • {{ user.email }}</option>
+            }
+          </select>
+        </label>
+
+        <div class="inline-fields">
+          <label class="field-panel">
+            <span>New user name</span>
+            <input #userNameInput type="text" placeholder="Jane Doe" />
+          </label>
+
+          <label class="field-panel">
+            <span>New user email</span>
+            <input #userEmailInput type="email" placeholder="jane@example.com" />
+          </label>
+        </div>
+
+        <button type="button" class="secondary" (click)="createUser(userNameInput, userEmailInput)" [disabled]="isCreatingUser()">
+          {{ isCreatingUser() ? 'Creating workspace...' : 'Create isolated user workspace' }}
+        </button>
+      </div>
     </div>
 
     <div class="hero-signal">
@@ -138,7 +170,7 @@
           <div>
             <p class="eyebrow">Command center</p>
             <h2>Control ingestion and scoring</h2>
-            <p class="section-copy">Refresh live sources, upload a newer resume, or tighten the shortlist threshold.</p>
+            <p class="section-copy">Refresh live sources, upload a newer resume, or tighten the shortlist threshold for {{ selectedUser()?.displayName ?? 'the active user' }}.</p>
           </div>
         </div>
 
@@ -402,3 +434,6 @@
     </section>
   }
 </div>
+
+
+

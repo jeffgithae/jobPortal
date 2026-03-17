@@ -2,11 +2,13 @@ import { inject, Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
 import {
+  AppUser,
   CandidateProfile,
   IngestionSummary,
   JobMatch,
   JobSource,
   PaginatedResult,
+  ResumeSyncResult,
   SourceCatalogEntry,
 } from '../models/job-portal.models';
 
@@ -19,14 +21,29 @@ export class JobPortalApiService {
   private readonly http = inject(HttpClient);
   private readonly baseUrl = this.resolveBaseUrl();
 
-  getProfile() {
-    return firstValueFrom(this.http.get<CandidateProfile>(`${this.baseUrl}/profile`));
+  getUsers() {
+    return firstValueFrom(this.http.get<AppUser[]>(`${this.baseUrl}/users`));
   }
 
-  getJobs(page: number, pageSize: number, realOnly = false) {
+  createUser(displayName: string, email: string) {
+    return firstValueFrom(this.http.post<AppUser>(`${this.baseUrl}/users`, { displayName, email }));
+  }
+
+  getProfile(userKey: string) {
+    return firstValueFrom(
+      this.http.get<CandidateProfile>(`${this.baseUrl}/profile`, {
+        params: {
+          userKey,
+        },
+      }),
+    );
+  }
+
+  getJobs(userKey: string, page: number, pageSize: number, realOnly = false) {
     return firstValueFrom(
       this.http.get<PaginatedResult<JobMatch>>(`${this.baseUrl}/jobs`, {
         params: {
+          userKey,
           page,
           pageSize,
           realOnly,
@@ -35,10 +52,11 @@ export class JobPortalApiService {
     );
   }
 
-  getMatches(threshold: number, page: number, pageSize: number, realOnly = false) {
+  getMatches(userKey: string, threshold: number, page: number, pageSize: number, realOnly = false) {
     return firstValueFrom(
       this.http.get<PaginatedResult<JobMatch>>(`${this.baseUrl}/jobs/matches`, {
         params: {
+          userKey,
           threshold,
           page,
           pageSize,
@@ -56,14 +74,26 @@ export class JobPortalApiService {
     return firstValueFrom(this.http.get<SourceCatalogEntry[]>(`${this.baseUrl}/jobs/source-catalog`));
   }
 
-  runIngestion() {
-    return firstValueFrom(this.http.post<IngestionSummary>(`${this.baseUrl}/jobs/ingest/run`, {}));
+  runIngestion(userKey: string) {
+    return firstValueFrom(
+      this.http.post<IngestionSummary>(`${this.baseUrl}/jobs/ingest/run`, {}, {
+        params: {
+          userKey,
+        },
+      }),
+    );
   }
 
-  uploadResume(file: File) {
+  syncResume(userKey: string, file: File) {
     const formData = new FormData();
     formData.append('file', file);
-    return firstValueFrom(this.http.post<CandidateProfile>(`${this.baseUrl}/profile/resume/upload`, formData));
+    return firstValueFrom(
+      this.http.post<ResumeSyncResult>(`${this.baseUrl}/jobs/resume-sync`, formData, {
+        params: {
+          userKey,
+        },
+      }),
+    );
   }
 
   private resolveBaseUrl() {

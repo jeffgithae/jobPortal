@@ -53,6 +53,13 @@ const KNOWN_SKILLS = [
   'MySQL',
   'MongoDB',
   'PostgreSQL',
+  'Power BI',
+  'Apache NiFi',
+  'ETL',
+  'Data Science',
+  'Data Engineering',
+  'Data Analysis',
+  'Machine Learning',
   'Security Auditing',
   'Vulnerability Assessment',
   'OWASP',
@@ -118,15 +125,15 @@ export class ResumeParserService {
       .map((line) => line.trim())
       .filter(Boolean)
       .slice(0, 12);
-    const headline = this.extractHeadline(topLines);
+    const headline = this.extractHeadline(topLines, normalizedText);
     const summary =
       this.extractSection(normalizedText, 'Professional Summary', 'Core Compet') ??
       this.extractSection(normalizedText, 'Summary', 'Experience') ??
       this.extractSection(normalizedText, 'Profile', 'Experience');
-    const location = this.extractLocation(topLines);
+    const location = this.extractLocation(topLines, normalizedText);
 
     return {
-      fullName: this.extractFullName(topLines),
+      fullName: this.extractFullName(topLines, normalizedText),
       email: normalizedText.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0]?.toLowerCase(),
       phone: this.extractPhone(normalizedText),
       headline,
@@ -150,20 +157,30 @@ export class ResumeParserService {
     return value.replace(/\r/g, '\n').replace(/[ \t]+/g, ' ').replace(/\n{2,}/g, '\n').trim();
   }
 
-  private extractFullName(topLines: string[]) {
+  private extractFullName(topLines: string[], text: string) {
+    const labeledMatch = text.match(/Name of (?:Expert|Candidate|Applicant)\s*:\s*([A-Za-z][A-Za-z .'-]{2,})/i)?.[1]?.trim();
+    if (labeledMatch) {
+      return labeledMatch;
+    }
+
     const candidate = topLines.find(
       (line, index) =>
         index < 2 &&
         /^[A-Za-z][A-Za-z .'-]{2,}$/.test(line) &&
         !/@/.test(line) &&
-        !/resume|curriculum vitae/i.test(line),
+        !/resume|curriculum vitae|position proposed/i.test(line),
     );
 
     return candidate?.trim();
   }
 
-  private extractHeadline(topLines: string[]) {
-    return topLines.find(
+  private extractHeadline(topLines: string[], text: string) {
+    const labeledMatch = text.match(/Position Proposed\s*:\s*([^\n]+)/i)?.[1]?.trim();
+    if (labeledMatch) {
+      return this.cleanHeadline(labeledMatch);
+    }
+
+    const fallback = topLines.find(
       (line, index) =>
         index > 0 &&
         !/@/.test(line) &&
@@ -171,6 +188,8 @@ export class ResumeParserService {
         !this.looksLikeLocation(line) &&
         !this.isSectionHeading(line),
     );
+
+    return fallback ? this.cleanHeadline(fallback) : undefined;
   }
 
   private extractSection(text: string, startLabel: string, endLabel: string) {
@@ -179,16 +198,39 @@ export class ResumeParserService {
   }
 
   private extractPhone(text: string) {
-    return text.match(/(\+?\d[\d ()-]{8,}\d)/)?.[1]?.replace(/\s+/g, ' ');
+    const preferredMatch = text.match(/(\+\d[\d ()-]{8,}\d)/)?.[1];
+    if (preferredMatch) {
+      return preferredMatch.replace(/\s+/g, ' ');
+    }
+
+    return text.match(/(\d[\d ()-]{8,}\d)/)?.[1]?.replace(/\s+/g, ' ');
   }
 
-  private extractLocation(topLines: string[]) {
+  private extractLocation(topLines: string[], text: string) {
+    const nationality = text.match(/Nationality\s*:\s*([A-Za-z .'-]+)/i)?.[1]?.trim();
+    if (nationality) {
+      return nationality === 'Kenyan' ? 'Kenya' : nationality;
+    }
+
     return topLines.find((line) => this.looksLikeLocation(line));
   }
 
   private extractYearsExperience(text: string) {
     const yearsMatch = text.match(/(\d+)\+?\s+years of experience/i);
-    return yearsMatch ? Number(yearsMatch[1]) : undefined;
+    if (yearsMatch) {
+      return Number(yearsMatch[1]);
+    }
+
+    const startYears = [...text.matchAll(/From:\s*(?:\d{1,2}(?:st|nd|rd|th)?\s*)?(?:[A-Za-z]+\s*)?(\d{4})/gi)]
+      .map((match) => Number(match[1]))
+      .filter((year) => Number.isFinite(year));
+
+    if (startYears.length === 0) {
+      return undefined;
+    }
+
+    const currentYear = new Date().getFullYear();
+    return Math.max(0, currentYear - Math.min(...startYears));
   }
 
   private extractFromDictionary(text: string, dictionary: string[]) {
@@ -201,7 +243,7 @@ export class ResumeParserService {
       .join(' | ');
     const segments = roleSource
       .split(/[|•]/)
-      .map((segment) => segment.trim())
+      .map((segment) => this.cleanHeadline(segment.trim()))
       .filter((segment) => this.looksLikeRole(segment));
 
     return [...new Set(segments)].slice(0, 6);
@@ -238,6 +280,7 @@ export class ResumeParserService {
       /(scaled|grew).{0,40}\d+%/i,
       /(improved|reduced|increased).{0,40}\d+%/i,
       /(led|managed).{0,50}(team|platform|project)/i,
+      /Role:\s*Main Developer/i,
     ];
 
     for (const pattern of patterns) {
@@ -297,7 +340,7 @@ export class ResumeParserService {
       return false;
     }
 
-    return /(engineer|developer|architect|manager|lead|consultant|analyst|designer|specialist)/i.test(line);
+    return /(engineer|developer|architect|manager|lead|consultant|analyst|designer|specialist|scientist)/i.test(line);
   }
 
   private isSectionHeading(line: string) {
@@ -332,5 +375,9 @@ export class ResumeParserService {
       replacementCharCount / totalLength > 0.005 ||
       controlCharCount / totalLength > 0.005
     );
+  }
+
+  private cleanHeadline(value: string) {
+    return value.replace(/\s{2,}/g, ' ').replace(/\s+\|\s+/g, ' | ').trim();
   }
 }

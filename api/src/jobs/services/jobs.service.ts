@@ -5,8 +5,9 @@ import { FilterQuery, Model } from 'mongoose';
 import { CandidateProfileDocument } from '../../candidate/schemas/candidate-profile.schema';
 import { CandidateProfileService } from '../../candidate/services/candidate-profile.service';
 import { DEFAULT_SOURCE_SEEDS } from '../../shared/demo-data';
-import { DEFAULT_INGEST_CRON, DEFAULT_INGEST_TIMEZONE, DEFAULT_MATCH_THRESHOLD } from '../../shared/system-defaults';
+import { DEFAULT_INGEST_CRON, DEFAULT_INGEST_TIMEZONE, DEFAULT_MATCH_THRESHOLD, DEFAULT_OWNER_KEY } from '../../shared/system-defaults';
 import { CreateJobSourceDto } from '../dto/create-job-source.dto';
+import { JobMatch, JobMatchDocument } from '../schemas/job-match.schema';
 import { JobPosting, JobPostingDocument } from '../schemas/job-posting.schema';
 import { JobSource, JobSourceDocument } from '../schemas/job-source.schema';
 import { SOURCE_CATALOG } from '../source-catalog';
@@ -36,6 +37,8 @@ export class JobsService {
     private readonly jobSourceModel: Model<JobSourceDocument>,
     @InjectModel(JobPosting.name)
     private readonly jobPostingModel: Model<JobPostingDocument>,
+    @InjectModel(JobMatch.name)
+    private readonly jobMatchModel: Model<JobMatchDocument>,
     private readonly candidateProfileService: CandidateProfileService,
     private readonly jobSourceRegistryService: JobSourceRegistryService,
     private readonly jobIntelligenceService: JobIntelligenceService,
@@ -61,7 +64,7 @@ export class JobsService {
       return;
     }
 
-    await this.ingestEnabledSources();
+    await this.ingestEnabledSources(DEFAULT_OWNER_KEY);
   }
 
   getSourceCatalog() {
@@ -72,9 +75,8 @@ export class JobsService {
     name: 'daily-job-ingestion',
     timeZone: DEFAULT_INGEST_TIMEZONE,
   })
-  async ingestEnabledSources() {
+  async ingestEnabledSources(summaryOwnerKey = DEFAULT_OWNER_KEY) {
     const sources = await this.jobSourceModel.find({ enabled: true }).sort({ name: 1 });
-    const profile = await this.candidateProfileService.getPrimaryProfile();
     let jobsUpserted = 0;
     const sourceResults: Array<Record<string, unknown>> = [];
 
@@ -84,7 +86,7 @@ export class JobsService {
         const jobs = await adapter.fetchJobs(source);
 
         for (const job of jobs) {
-          await this.upsertJob(source, profile, job);
+          await this.upsertJob(source, job);
           jobsUpserted += 1;
         }
 
@@ -118,8 +120,9 @@ export class JobsService {
       }
     }
 
-    const rescoredJobs = await this.rescoreExistingJobs(profile);
-    const matchedJobs = await this.jobPostingModel.countDocuments({
+    const rescoredJobs = await this.rescoreAllUserMatches();
+    const matchedJobs = await this.jobMatchModel.countDocuments({
+      ownerKey: summaryOwnerKey,
       matchScore: {
         $gte: DEFAULT_MATCH_THRESHOLD,
       },
@@ -131,6 +134,7 @@ export class JobsService {
         cron: DEFAULT_INGEST_CRON,
         timeZone: DEFAULT_INGEST_TIMEZONE,
       },
+      ownerKey: summaryOwnerKey,
       sourcesRun: sources.length,
       jobsUpserted,
       rescoredJobs,
@@ -139,25 +143,44 @@ export class JobsService {
     };
   }
 
-  async runManualIngestion() {
-    return this.ingestEnabledSources();
+  async runManualIngestion(ownerKey = DEFAULT_OWNER_KEY) {
+    return this.ingestEnabledSources(ownerKey);
   }
 
-  async getAllJobs(options: PaginatedQueryOptions = {}) {
-    const pagination = this.normalizePagination(options.page, options.pageSize);
-    const filter = this.buildJobFilter({ realOnly: options.realOnly });
+  async rescoreOwnerMatches(ownerKey = DEFAULT_OWNER_KEY) {
+    const [profile, jobs] = await Promise.all([
+      this.candidateProfileService.getPrimaryProfile(ownerKey),
+      this.jobPostingModel.find(),
+    ]);
 
-    return this.paginateJobs(filter, pagination.page, pagination.pageSize);
+    if (jobs.length === 0) {
+      return 0;
+    }
+
+    const operations = jobs.map((job) => this.toMatchOperation(profile, job));
+    await this.jobMatchModel.bulkWrite(operations);
+    return operations.length;
   }
 
-  async getMatches(options: MatchQueryOptions = {}) {
+  async getAllJobs(ownerKey = DEFAULT_OWNER_KEY, options: PaginatedQueryOptions = {}) {
+    await this.candidateProfileService.getPrimaryProfile(ownerKey);
+
     const pagination = this.normalizePagination(options.page, options.pageSize);
-    const filter = this.buildJobFilter({
+    const filter = this.buildMatchFilter(ownerKey, { realOnly: options.realOnly });
+
+    return this.paginateMatches(filter, pagination.page, pagination.pageSize);
+  }
+
+  async getMatches(ownerKey = DEFAULT_OWNER_KEY, options: MatchQueryOptions = {}) {
+    await this.candidateProfileService.getPrimaryProfile(ownerKey);
+
+    const pagination = this.normalizePagination(options.page, options.pageSize);
+    const filter = this.buildMatchFilter(ownerKey, {
       threshold: options.threshold ?? DEFAULT_MATCH_THRESHOLD,
       realOnly: options.realOnly,
     });
 
-    return this.paginateJobs(filter, pagination.page, pagination.pageSize);
+    return this.paginateMatches(filter, pagination.page, pagination.pageSize);
   }
 
   async listSources() {
@@ -175,8 +198,10 @@ export class JobsService {
     return source.save();
   }
 
-  private buildJobFilter(options: { threshold?: number; realOnly?: boolean }) {
-    const filter: FilterQuery<JobPostingDocument> = {};
+  private buildMatchFilter(ownerKey: string, options: { threshold?: number; realOnly?: boolean }) {
+    const filter: FilterQuery<JobMatchDocument> = {
+      ownerKey,
+    };
 
     if (typeof options.threshold === 'number') {
       filter.matchScore = {
@@ -205,16 +230,16 @@ export class JobsService {
     };
   }
 
-  private async paginateJobs(
-    filter: FilterQuery<JobPostingDocument>,
+  private async paginateMatches(
+    filter: FilterQuery<JobMatchDocument>,
     page: number,
     pageSize: number,
   ) {
     const [total, items] = await Promise.all([
-      this.jobPostingModel.countDocuments(filter),
-      this.jobPostingModel
+      this.jobMatchModel.countDocuments(filter),
+      this.jobMatchModel
         .find(filter)
-        .sort({ matchScore: -1, createdAt: -1 })
+        .sort({ matchScore: -1, postedAt: -1, updatedAt: -1 })
         .skip((page - 1) * pageSize)
         .limit(pageSize),
     ]);
@@ -228,56 +253,75 @@ export class JobsService {
     };
   }
 
-  private async rescoreExistingJobs(candidateProfile: CandidateProfileDocument) {
-    const jobs = await this.jobPostingModel.find();
+  private async rescoreAllUserMatches() {
+    const [profiles, jobs] = await Promise.all([
+      this.candidateProfileService.listProfiles(),
+      this.jobPostingModel.find(),
+    ]);
 
-    if (jobs.length === 0) {
+    if (profiles.length === 0 || jobs.length === 0) {
       return 0;
     }
 
-    const operations = jobs.map((job) => {
-      const normalizedJob = {
-        externalId: job.externalId,
-        title: job.title,
-        company: job.company,
-        location: job.location,
-        remote: job.remote,
-        employmentType: job.employmentType,
-        url: job.url,
-        description: job.description ?? '',
-        requirements: job.requirements ?? [],
-        skills: job.skills ?? [],
-        minExperienceYears: job.minExperienceYears,
-        seniority: job.seniority,
-        postedAt: job.postedAt,
-        raw: job.raw ?? {},
-      };
-      const match = this.matchingService.scoreJob(candidateProfile, normalizedJob, DEFAULT_MATCH_THRESHOLD);
-
-      return {
-        updateOne: {
-          filter: { _id: job._id },
-          update: {
-            $set: {
-              matchScore: match.totalScore,
-              matchReasons: match.reasons,
-              missingRequirements: match.missingRequirements,
-              isRecommended: match.isRecommended,
-            },
-          },
-        },
-      };
-    });
-
-    await this.jobPostingModel.bulkWrite(operations);
+    const operations = profiles.flatMap((profile) => jobs.map((job) => this.toMatchOperation(profile, job)));
+    await this.jobMatchModel.bulkWrite(operations);
     return operations.length;
   }
 
-  private async upsertJob(
-    source: JobSourceDocument,
-    candidateProfile: CandidateProfileDocument,
-    job: NormalizedJobListing,
-  ) {
+  private toMatchOperation(candidateProfile: CandidateProfileDocument, job: JobPostingDocument) {
+    const normalizedJob = this.toNormalizedJob(job);
+    const match = this.matchingService.scoreJob(candidateProfile, normalizedJob, DEFAULT_MATCH_THRESHOLD);
+
+    return {
+      updateOne: {
+        filter: { ownerKey: candidateProfile.ownerKey, sourceJobKey: job.sourceJobKey },
+        update: {
+          $set: {
+            jobPostingId: job._id.toString(),
+            ownerKey: candidateProfile.ownerKey,
+            sourceJobKey: job.sourceJobKey,
+            externalId: job.externalId,
+            sourceType: job.sourceType,
+            sourceName: job.sourceName,
+            title: job.title,
+            company: job.company,
+            location: job.location,
+            remote: job.remote,
+            employmentType: job.employmentType,
+            url: job.url,
+            skills: job.skills ?? [],
+            matchScore: match.totalScore,
+            matchReasons: match.reasons,
+            missingRequirements: match.missingRequirements,
+            isRecommended: match.isRecommended,
+            postedAt: job.postedAt,
+          },
+        },
+        upsert: true,
+      },
+    };
+  }
+
+  private toNormalizedJob(job: JobPostingDocument): NormalizedJobListing {
+    return {
+      externalId: job.externalId,
+      title: job.title,
+      company: job.company,
+      location: job.location,
+      remote: job.remote,
+      employmentType: job.employmentType,
+      url: job.url,
+      description: job.description ?? '',
+      requirements: job.requirements ?? [],
+      skills: job.skills ?? [],
+      minExperienceYears: job.minExperienceYears,
+      seniority: job.seniority,
+      postedAt: job.postedAt,
+      raw: job.raw ?? {},
+    };
+  }
+
+  private async upsertJob(source: JobSourceDocument, job: NormalizedJobListing) {
     const description = this.jobIntelligenceService.toPlainText(job.description);
     const skills = [...new Set([...(job.skills ?? []), ...this.jobIntelligenceService.extractSkills(job.title, description)])];
     const normalizedJob = {
@@ -289,7 +333,6 @@ export class JobsService {
       seniority: job.seniority ?? this.jobIntelligenceService.inferSeniority(job.title, description),
       remote: job.remote ?? this.jobIntelligenceService.inferRemote(job.location, description),
     };
-    const match = this.matchingService.scoreJob(candidateProfile, normalizedJob, DEFAULT_MATCH_THRESHOLD);
 
     return this.jobPostingModel.findOneAndUpdate(
       { sourceJobKey: `${source.type}:${job.externalId}` },
@@ -311,10 +354,6 @@ export class JobsService {
           seniority: normalizedJob.seniority,
           postedAt: job.postedAt,
           fetchedAt: new Date(),
-          matchScore: match.totalScore,
-          matchReasons: match.reasons,
-          missingRequirements: match.missingRequirements,
-          isRecommended: match.isRecommended,
           raw: job.raw ?? {},
         },
       },
@@ -322,3 +361,4 @@ export class JobsService {
     );
   }
 }
+

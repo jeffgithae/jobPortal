@@ -335,6 +335,9 @@
 }
 
 input[type='number'],
+input[type='text'],
+input[type='email'],
+select,
 button,
 .upload-dropzone {
   width: 100%;
@@ -625,3 +628,44 @@ button:disabled {
     max-width: 100%;
   }
 }
+
+.user-workspace {
+  display: grid;
+  gap: 0.9rem;
+  background: rgba(255, 250, 243, 0.1);
+  border-color: rgba(255, 250, 243, 0.16);
+}
+
+.user-workspace .block-head,
+.user-workspace .field-panel span,
+.user-workspace button.secondary {
+  color: #f9f3ea;
+}
+
+.user-workspace input[type='text'],
+.user-workspace input[type='email'],
+.user-workspace select {
+  width: 100%;
+  border-radius: 16px;
+  border: 1px solid rgba(255, 250, 243, 0.18);
+  background: rgba(255, 250, 243, 0.12);
+  color: #f9f3ea;
+  padding: 0.85rem 0.95rem;
+}
+
+.user-workspace option {
+  color: var(--ink);
+}
+
+.inline-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.9rem;
+}
+
+@media (max-width: 760px) {
+  .inline-fields {
+    grid-template-columns: 1fr;
+  }
+}
+

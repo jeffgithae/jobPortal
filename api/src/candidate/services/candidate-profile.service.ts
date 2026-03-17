@@ -22,6 +22,10 @@ export class CandidateProfileService {
   ) {}
 
   async ensurePrimaryProfile(ownerKey = DEFAULT_OWNER_KEY) {
+    if (ownerKey !== DEFAULT_OWNER_KEY) {
+      return this.candidateProfileModel.findOne({ ownerKey });
+    }
+
     return this.candidateProfileModel.findOneAndUpdate(
       { ownerKey },
       { $setOnInsert: DEMO_PROFILE_SEED },
@@ -33,10 +37,38 @@ export class CandidateProfileService {
     const profile = await this.ensurePrimaryProfile(ownerKey);
 
     if (!profile) {
-      throw new BadRequestException('Unable to load the primary candidate profile.');
+      throw new BadRequestException(`Unable to load a candidate profile for user ${ownerKey}.`);
     }
 
     return profile;
+  }
+
+  async listProfiles() {
+    await this.ensurePrimaryProfile();
+    return this.candidateProfileModel.find().sort({ createdAt: 1, fullName: 1 });
+  }
+
+  async createProfileForUser(input: { ownerKey: string; fullName: string; email: string }) {
+    return this.candidateProfileModel.findOneAndUpdate(
+      { ownerKey: input.ownerKey },
+      {
+        $setOnInsert: {
+          ownerKey: input.ownerKey,
+          fullName: input.fullName,
+          email: input.email.toLowerCase(),
+          preferredLocations: [],
+          workPreferences: [],
+          yearsExperience: 0,
+          targetRoles: [],
+          skills: [],
+          certifications: [],
+          languages: [],
+          education: [],
+          experienceHighlights: [],
+        },
+      },
+      { upsert: true, new: true, setDefaultsOnInsert: true },
+    );
   }
 
   async updatePrimaryProfile(updateProfileDto: UpdateProfileDto, ownerKey = DEFAULT_OWNER_KEY) {

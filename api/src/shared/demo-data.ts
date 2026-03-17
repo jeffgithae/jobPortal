@@ -1,4 +1,11 @@
-﻿import { DEFAULT_INGEST_CRON, DEFAULT_INGEST_TIMEZONE, DEFAULT_OWNER_KEY } from './system-defaults';
+import { DEFAULT_INGEST_CRON, DEFAULT_INGEST_TIMEZONE, DEFAULT_OWNER_KEY } from './system-defaults';
+
+export const DEMO_USER_SEED = {
+  ownerKey: DEFAULT_OWNER_KEY,
+  displayName: 'Jeff Kinyua Githae',
+  email: 'jeffgithae03@gmail.com',
+  seeded: true
+};
 
 export const DEMO_PROFILE_SEED = {
   ownerKey: DEFAULT_OWNER_KEY,
@@ -288,3 +295,4 @@ export const DEMO_CURATED_JOBS = [
     seniority: 'senior'
   }
 ];
+

@@ -4,9 +4,19 @@ export interface EducationRecord {
   period?: string;
 }
 
+export interface AppUser {
+  _id?: string;
+  id?: string;
+  ownerKey: string;
+  displayName: string;
+  email: string;
+  seeded?: boolean;
+}
+
 export interface CandidateProfile {
   _id?: string;
   id?: string;
+  ownerKey?: string;
   fullName: string;
   email: string;
   phone?: string;
@@ -30,6 +40,7 @@ export interface CandidateProfile {
 export interface JobMatch {
   _id?: string;
   id?: string;
+  ownerKey?: string;
   title: string;
   company: string;
   location?: string;
@@ -81,6 +92,7 @@ export interface SourceCatalogEntry {
 
 export interface IngestionSummary {
   ranAt: string;
+  ownerKey?: string;
   sourcesRun: number;
   jobsUpserted: number;
   matchedJobs: number;
@@ -95,4 +107,9 @@ export interface IngestionSummary {
     status: string;
     error?: string;
   }>;
+}
+
+export interface ResumeSyncResult {
+  profile: CandidateProfile;
+  ingestionSummary: IngestionSummary;
 }
