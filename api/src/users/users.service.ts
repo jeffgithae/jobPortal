@@ -2,7 +2,6 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { DEMO_PROFILE_SEED, DEMO_USER_SEED } from '../shared/demo-data';
-import { DEFAULT_OWNER_KEY } from '../shared/system-defaults';
 import { CandidateProfile, CandidateProfileDocument } from '../candidate/schemas/candidate-profile.schema';
 import { AppUser, AppUserDocument } from './schemas/app-user.schema';
 
@@ -16,39 +15,24 @@ export class UsersService {
   ) {}
 
   async ensureStarterUser() {
-    const demoEmail = DEMO_USER_SEED.email.trim().toLowerCase();
-    const existingStarterUser = await this.appUserModel.findOne({ ownerKey: DEFAULT_OWNER_KEY });
+    const [hasExistingUser, hasExistingProfile] = await Promise.all([
+      this.appUserModel.exists({}),
+      this.candidateProfileModel.exists({}),
+    ]);
 
-    if (existingStarterUser) {
-      await this.appUserModel.findByIdAndUpdate(existingStarterUser._id, {
-        $set: {
-          displayName: DEMO_USER_SEED.displayName,
-          email: demoEmail,
-          seeded: true,
-        },
-      });
-    } else {
-      await this.appUserModel.findOneAndUpdate(
-        { email: demoEmail },
-        {
-          $setOnInsert: {
-            ...DEMO_USER_SEED,
-            email: demoEmail,
-          },
-          $set: {
-            displayName: DEMO_USER_SEED.displayName,
-            seeded: true,
-          },
-        },
-        { upsert: true, new: true, setDefaultsOnInsert: true },
-      );
+    if (hasExistingUser || hasExistingProfile) {
+      return;
     }
 
-    await this.candidateProfileModel.findOneAndUpdate(
-      { ownerKey: DEFAULT_OWNER_KEY },
-      { $setOnInsert: DEMO_PROFILE_SEED },
-      { upsert: true, new: true, setDefaultsOnInsert: true },
-    );
+    await this.appUserModel.create({
+      ...DEMO_USER_SEED,
+      email: DEMO_USER_SEED.email.trim().toLowerCase(),
+    });
+
+    await this.candidateProfileModel.create({
+      ...DEMO_PROFILE_SEED,
+      email: DEMO_PROFILE_SEED.email.trim().toLowerCase(),
+    });
   }
 
   async countUsers() {
