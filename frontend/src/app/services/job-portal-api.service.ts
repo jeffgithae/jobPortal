@@ -1,4 +1,4 @@
-import { HttpClient, HttpHeaders } from '@angular/common/http';
+﻿import { HttpClient, HttpHeaders } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { firstValueFrom } from 'rxjs';
 import {
@@ -8,6 +8,7 @@ import {
   JobFilters,
   JobMatch,
   JobSource,
+  JobUserTag,
   PaginatedResult,
   ResumeSyncResult,
   SourceCatalogEntry,
@@ -81,6 +82,27 @@ export class JobPortalApiService {
           threshold,
           ...this.buildJobParams(page, pageSize, filters),
         },
+      }),
+    );
+  }
+
+  getTaggedJobs(sessionToken: string, page: number, pageSize: number, tag?: JobUserTag | '') {
+    return firstValueFrom(
+      this.http.get<PaginatedResult<JobMatch>>(`${this.baseUrl}/jobs/tagged`, {
+        headers: this.createAuthHeaders(sessionToken),
+        params: {
+          page,
+          pageSize,
+          tag: tag?.trim() ?? '',
+        },
+      }),
+    );
+  }
+
+  updateJobTag(sessionToken: string, matchId: string, tag: JobUserTag | null) {
+    return firstValueFrom(
+      this.http.post<JobMatch>(`${this.baseUrl}/jobs/tag`, { matchId, tag }, {
+        headers: this.createAuthHeaders(sessionToken),
       }),
     );
   }

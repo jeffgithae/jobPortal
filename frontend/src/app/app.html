@@ -1,4 +1,4 @@
-<div class="shell">
+ï»¿<div class="shell">
   @if (error()) {
     <section class="card alert-bar">
       <strong>API status</strong>
@@ -7,33 +7,57 @@
   }
 
   @if (!isAuthenticated()) {
-    <section class="auth-shell card">
-      <div class="auth-copy">
-        <p class="eyebrow">JobPortal</p>
-        <h1>Private job intelligence for each candidate account.</h1>
+    <section class="auth-stage">
+      <article class="card auth-showcase">
+        <div class="brand-row">
+          <div class="brand-mark">JP</div>
+          <div>
+            <p class="eyebrow">Private job intelligence</p>
+            <strong>JobPortal</strong>
+          </div>
+        </div>
+
+        <h1>Professional job discovery for candidates who want signal, not clutter.</h1>
         <p class="hero-text">
-          Sign in to see your own profile, your own live matches, and your own application shortlist. Resume uploads and scoring stay isolated per account.
+          Sign in to enter a private workspace where your resume, your preferences, and your scored jobs stay isolated to your account.
+          Upload a new CV, rescore in minutes, and work from direct-source application links.
         </p>
+
+        <div class="auth-stat-row">
+          <article class="mini-stat">
+            <span>Private matching</span>
+            <strong>Per account</strong>
+          </article>
+          <article class="mini-stat">
+            <span>Live boards</span>
+            <strong>ATS-sourced</strong>
+          </article>
+          <article class="mini-stat">
+            <span>Apply paths</span>
+            <strong>Direct links</strong>
+          </article>
+        </div>
 
         <div class="auth-notes">
           <article class="note-card">
-            <span class="signal-label">Private workspace</span>
-            <strong>Only your jobs after login</strong>
-            <p>Each account has its own resume, match scores, and recommendation stream.</p>
+            <span class="signal-label">Profile isolation</span>
+            <strong>Your resume does not affect anyone else</strong>
+            <p>Each account keeps its own profile snapshot, filters, preferences, and recommendation scores.</p>
           </article>
+
           <article class="note-card">
-            <span class="signal-label">Live ATS sources</span>
-            <strong>Direct application links</strong>
-            <p>Track public Greenhouse, Lever, Ashby, and Djinni roles without mixing candidate scoring across users.</p>
+            <span class="signal-label">Source-driven</span>
+            <strong>Track live ATS boards, not dead listings</strong>
+            <p>Review Greenhouse, Lever, Ashby, Djinni, and other connected sources with direct application URLs.</p>
           </article>
         </div>
-      </div>
+      </article>
 
-      <div class="auth-grid">
-        <article class="auth-card">
+      <div class="auth-panels">
+        <article class="card auth-card">
           <p class="eyebrow">Sign in</p>
-          <h2>Access your job room</h2>
-          <p class="section-copy">Use the email and password for your account.</p>
+          <h2>Enter your workspace</h2>
+          <p class="section-copy">Use your account email and password to load your private profile and job feed.</p>
 
           <div class="auth-form">
             <label class="field-panel">
@@ -50,10 +74,10 @@
           </div>
         </article>
 
-        <article class="auth-card register-card">
+        <article class="card auth-card register-card">
           <p class="eyebrow">Create account</p>
           <h2>Start a private workspace</h2>
-          <p class="section-copy">Create an account before uploading your resume and reviewing matched jobs.</p>
+          <p class="section-copy">Create an account before uploading your resume and reviewing scored opportunities.</p>
 
           <div class="auth-form">
             <label class="field-panel">
@@ -76,50 +100,66 @@
       </div>
     </section>
   } @else {
-    <section class="hero-frame card">
-      <div class="hero-copy">
-        <p class="eyebrow">Authenticated workspace</p>
-        <h1>Resume-first job discovery with live boards, match scoring, and direct apply links.</h1>
-        <p class="hero-text">
-          Your dashboard is private to your account. Upload a resume, refresh live ATS sources, tune your preferences, and review only the jobs scored for {{ authUser()?.displayName }}.
-        </p>
-
-        <div class="member-ribbon content-block">
-          <div>
-            <span class="signal-label">Signed in as</span>
-            <strong>{{ authUser()?.displayName }}</strong>
-            <p>{{ authUser()?.email }}</p>
-          </div>
-          <button type="button" class="secondary ghost-light" (click)="logout()">Sign out</button>
+    <section class="topbar card">
+      <div class="brand-row">
+        <div class="brand-mark">JP</div>
+        <div>
+          <p class="eyebrow">Candidate workspace</p>
+          <strong>Private market intelligence</strong>
         </div>
       </div>
 
-      <div class="hero-signal">
-        <div class="signal-card">
-          <span class="signal-label">Current threshold</span>
+      <div class="topbar-meta">
+        <div class="signed-in-panel">
+          <span class="signal-label">Signed in as</span>
+          <strong>{{ authUser()?.displayName }}</strong>
+          <p>{{ authUser()?.email }}</p>
+        </div>
+        <button type="button" class="secondary ghost-light" (click)="logout()">Sign out</button>
+      </div>
+    </section>
+
+    <section class="hero-frame card">
+      <div class="hero-copy">
+        <p class="eyebrow">Resume-first job discovery</p>
+        <h1>Find roles that fit your profile before you spend time applying.</h1>
+        <p class="hero-text">
+          Refresh live sources, upload a new resume, save workplace preferences, and review only the jobs scored for {{ authUser()?.displayName }}.
+        </p>
+
+        <div class="hero-tags">
+          <span class="hero-tag">Direct apply links</span>
+          <span class="hero-tag">Per-user scoring</span>
+          <span class="hero-tag">Live ATS ingestion</span>
+        </div>
+      </div>
+
+      <div class="hero-spotlight">
+        <div class="signal-card threshold-card">
+          <span class="signal-label">Current shortlist threshold</span>
           <strong>{{ threshold() }}%</strong>
-          <p>Real-match filtering is applied before jobs land in the shortlist.</p>
+          <p>Only roles that clear this bar appear in your priority shortlist.</p>
         </div>
 
         @if (strongestMatch(); as topMatch) {
-          <div class="signal-card signal-feature">
+          <div class="signal-card feature-card">
             <span class="signal-label">Strongest live match</span>
             <strong>{{ topMatch.title }}</strong>
-            <p>{{ topMatch.company }} • {{ topMatch.remote ? 'Remote' : topMatch.location }}</p>
+            <p>{{ topMatch.company }} â€¢ {{ topMatch.remote ? 'Remote' : topMatch.location }}</p>
             <a [href]="topMatch.url" target="_blank" rel="noreferrer">Open role</a>
           </div>
         } @else {
-          <div class="signal-card signal-feature empty-feature">
+          <div class="signal-card feature-card empty-feature">
             <span class="signal-label">Strongest live match</span>
-            <strong>Waiting for live recommendations</strong>
-            <p>Run ingestion or lower the threshold to widen the shortlist.</p>
+            <strong>No featured role yet</strong>
+            <p>Run ingestion or lower the threshold to widen your shortlist.</p>
           </div>
         }
       </div>
 
       <div class="hero-metrics">
         <article class="metric-tile">
-          <span>Real matches</span>
+          <span>Shortlisted roles</span>
           <strong>{{ recommendedCount() }}</strong>
         </article>
         <article class="metric-tile">
@@ -127,101 +167,50 @@
           <strong>{{ liveJobsCount() }}</strong>
         </article>
         <article class="metric-tile">
-          <span>Enabled boards</span>
-          <strong>{{ enabledSources().length }}</strong>
+          <span>Tagged jobs</span>
+          <strong>{{ taggedJobsCount() }}</strong>
         </article>
         <article class="metric-tile">
-          <span>Tracked boards</span>
-          <strong>{{ sourceCatalog().length }}</strong>
+          <span>Enabled boards</span>
+          <strong>{{ enabledSources().length }}</strong>
         </article>
       </div>
     </section>
 
     @if (isLoading()) {
-      <section class="card loading-panel">Loading your profile, sources, and live jobs...</section>
+      <section class="card loading-panel">Loading your profile, boards, and private matches...</section>
     } @else {
-      <section class="workspace-grid">
-        <article class="card profile-panel">
-          <div class="section-headline">
-            <div>
-              <p class="eyebrow">Candidate profile</p>
-              <h2>{{ profile()?.fullName }}</h2>
-              <p class="section-copy">{{ profile()?.headline }}</p>
+      <section class="dashboard-layout">
+        <aside class="rail">
+          <article class="card rail-card command-panel">
+            <div class="section-headline compact-headline">
+              <div>
+                <p class="eyebrow">Command center</p>
+                <h2>Refresh your workspace</h2>
+              </div>
             </div>
-            <div class="badge-pill">{{ profile()?.yearsExperience }}+ years</div>
-          </div>
 
-          <div class="identity-strip">
-            <span>{{ profile()?.location }}</span>
-            <span>{{ profile()?.email }}</span>
-            <span>{{ profile()?.phone }}</span>
-          </div>
+            <label class="field-panel">
+              <span>Hiring confidence threshold</span>
+              <input #thresholdInput type="number" min="50" max="100" [value]="threshold()" (change)="refreshMatchesForThreshold(thresholdInput.value)" />
+            </label>
 
-          <p class="profile-summary">{{ profile()?.summary }}</p>
-
-          <div class="profile-grid">
-            <section class="content-block">
-              <div class="block-head">
-                <h3>Target roles</h3>
-                <span>Focus areas</span>
-              </div>
-              <div class="chip-wrap">
-                @for (role of profile()?.targetRoles ?? []; track role) {
-                  <span class="chip chip-emphasis">{{ role }}</span>
-                }
-              </div>
-            </section>
-
-            <section class="content-block">
-              <div class="block-head">
-                <h3>Core skills</h3>
-                <span>Resume-derived</span>
-              </div>
-              <div class="chip-wrap">
-                @for (skill of profile()?.skills ?? []; track skill) {
-                  <span class="chip">{{ skill }}</span>
-                }
-              </div>
-            </section>
-
-            <section class="content-block">
-              <div class="block-head">
-                <h3>Work preferences</h3>
-                <span>Used in scoring</span>
-              </div>
-              <div class="chip-wrap">
-                @for (preference of profile()?.workPreferences ?? []; track preference) {
-                  <span class="chip chip-emphasis">{{ preference }}</span>
-                } @empty {
-                  <span class="chip">No workplace preference saved</span>
-                }
-              </div>
-              <div class="chip-wrap top-gap">
-                @for (location of profile()?.preferredLocations ?? []; track location) {
-                  <span class="chip">{{ location }}</span>
-                } @empty {
-                  <span class="chip">No preferred locations saved</span>
-                }
-              </div>
-            </section>
-          </div>
-        </article>
-
-        <aside class="card command-panel">
-          <div class="section-headline">
-            <div>
-              <p class="eyebrow">Command center</p>
-              <h2>Control ingestion and scoring</h2>
-              <p class="section-copy">Refresh live sources, upload a newer resume, update your preferences, or tighten the shortlist threshold for your account.</p>
+            <div class="action-stack">
+              <button type="button" (click)="runIngestion()" [disabled]="isRefreshing()">
+                {{ isRefreshing() ? 'Refreshing live boards...' : 'Run live ingestion now' }}
+              </button>
+              <label class="upload-dropzone">
+                <input type="file" accept=".pdf,.txt" (change)="onFileSelected($event)" />
+                <span>{{ selectedFile()?.name ?? 'Choose resume file' }}</span>
+                <small>PDF or TXT only</small>
+              </label>
+              <button type="button" class="secondary" (click)="uploadResume()" [disabled]="isUploading() || !selectedFile()">
+                {{ isUploading() ? 'Updating profile...' : 'Upload and rescore' }}
+              </button>
             </div>
-          </div>
+          </article>
 
-          <label class="field-panel">
-            <span>Hiring confidence threshold</span>
-            <input #thresholdInput type="number" min="50" max="100" [value]="threshold()" (change)="refreshMatchesForThreshold(thresholdInput.value)" />
-          </label>
-
-          <section class="status-panel preference-panel">
+          <section class="card rail-card preference-panel">
             <div class="block-head">
               <h3>Job preferences</h3>
               <span>Saved per user</span>
@@ -252,16 +241,16 @@
             </button>
           </section>
 
-          <section class="status-panel filters-panel">
+          <section class="card rail-card filters-panel">
             <div class="block-head">
               <h3>Live filters</h3>
               <span>{{ activeFiltersCount() }} active</span>
             </div>
 
             <div class="filter-grid">
-              <label class="field-panel filter-span-2">
+              <label class="field-panel field-span-full">
                 <span>Keyword</span>
-                <input type="text" [value]="searchFilter()" (input)="searchFilter.set(searchInput.value)" #searchInput placeholder="Angular, backend, data, architect" />
+                <input type="text" [value]="searchFilter()" (input)="searchFilter.set(searchInput.value)" #searchInput placeholder="Angular, backend, architect, data" />
               </label>
 
               <label class="field-panel">
@@ -284,9 +273,9 @@
                 </select>
               </label>
 
-              <label class="field-panel filter-span-2">
+              <label class="field-panel field-span-full">
                 <span>Location contains</span>
-                <input type="text" [value]="locationFilter()" (input)="locationFilter.set(locationInput.value)" #locationInput placeholder="Kenya, EU, Africa, Remote" />
+                <input type="text" [value]="locationFilter()" (input)="locationFilter.set(locationInput.value)" #locationInput placeholder="Kenya, Europe, Africa, Remote" />
               </label>
             </div>
 
@@ -301,22 +290,8 @@
             </div>
           </section>
 
-          <div class="action-stack">
-            <button type="button" (click)="runIngestion()" [disabled]="isRefreshing()">
-              {{ isRefreshing() ? 'Refreshing live boards...' : 'Run live ingestion now' }}
-            </button>
-            <label class="upload-dropzone">
-              <input type="file" accept=".pdf,.txt" (change)="onFileSelected($event)" />
-              <span>{{ selectedFile()?.name ?? 'Choose resume file' }}</span>
-              <small>PDF or TXT only</small>
-            </label>
-            <button type="button" class="secondary" (click)="uploadResume()" [disabled]="isUploading() || !selectedFile()">
-              {{ isUploading() ? 'Updating profile...' : 'Upload and rescore' }}
-            </button>
-          </div>
-
           @if (ingestionSummary(); as summary) {
-            <section class="status-panel">
+            <section class="card rail-card status-panel">
               <div class="status-row">
                 <span>Last run</span>
                 <strong>{{ summary.ranAt | date:'medium' }}</strong>
@@ -331,14 +306,14 @@
                   <strong>{{ summary.jobsUpserted }}</strong>
                 </article>
                 <article>
-                  <span>Recommended</span>
+                  <span>Shortlisted</span>
                   <strong>{{ summary.matchedJobs }}</strong>
                 </article>
               </div>
             </section>
           }
 
-          <section class="live-source-strip">
+          <section class="card rail-card live-source-strip">
             <div class="block-head">
               <h3>Active source mix</h3>
               <span>{{ enabledSources().length }} live</span>
@@ -350,162 +325,373 @@
             </div>
           </section>
         </aside>
-      </section>
 
-      <section class="card section-panel match-panel">
-        <div class="section-headline">
-          <div>
-            <p class="eyebrow">Priority shortlist</p>
-            <h2>Real jobs at {{ threshold() }}% or higher</h2>
-            <p class="section-copy">This list only contains live ATS roles that clear your current hiring-confidence threshold after the active filters are applied.</p>
-          </div>
-          <div class="badge-pill">{{ recommendedCount() }} roles</div>
-        </div>
+        <div class="dashboard-main">
+          <section class="card page-switcher">
+            <div>
+              <p class="eyebrow">Workspace pages</p>
+              <h2>{{ activeWorkspacePage() === 'dashboard' ? 'Live workspace' : 'Tagged jobs' }}</h2>
+            </div>
+            <div class="page-switcher-actions">
+              <button type="button" class="secondary page-pill" [class.page-pill-active]="activeWorkspacePage() === 'dashboard'" (click)="setWorkspacePage('dashboard')">
+                Dashboard
+              </button>
+              <button type="button" class="secondary page-pill" [class.page-pill-active]="activeWorkspacePage() === 'tagged'" (click)="setWorkspacePage('tagged')">
+                Tagged jobs
+              </button>
+            </div>
+          </section>
 
-        <div class="jobs-grid spotlight-grid">
-          @for (job of matches(); track trackByTitle($index, job)) {
-            <article class="job-card priority-card">
-              <div class="job-topline">
-                <span class="job-source-tag">{{ job.sourceName }}</span>
-                <div class="score-chip">{{ job.matchScore }}%</div>
+          @if (activeWorkspacePage() === 'dashboard') {
+            <article class="card profile-panel">
+              <div class="section-headline">
+                <div>
+                  <p class="eyebrow">Candidate profile</p>
+                  <h2>{{ profile()?.fullName }}</h2>
+                  <p class="section-copy">{{ profile()?.headline }}</p>
+                </div>
+                <div class="badge-pill">{{ profile()?.yearsExperience }}+ years</div>
               </div>
 
-              <div class="job-heading">
-                <h3>{{ job.title }}</h3>
-                <p>{{ job.company }} • {{ job.remote ? 'Remote' : job.location }}</p>
+              <div class="identity-strip">
+                <span>{{ profile()?.location }}</span>
+                <span>{{ profile()?.email }}</span>
+                <span>{{ profile()?.phone }}</span>
               </div>
 
-              <div class="chip-wrap compact-wrap">
-                @for (skill of job.skills; track skill) {
-                  <span class="chip">{{ skill }}</span>
-                }
-              </div>
+              <p class="profile-summary">{{ profile()?.summary }}</p>
 
-              <div class="analysis-grid">
-                <section>
-                  <h4>Why it matches</h4>
-                  <ul>
-                    @for (reason of job.matchReasons; track reason) {
-                      <li>{{ reason }}</li>
+              <div class="profile-grid">
+                <section class="content-block">
+                  <div class="block-head">
+                    <h3>Target roles</h3>
+                    <span>Focus areas</span>
+                  </div>
+                  <div class="chip-wrap">
+                    @for (role of profile()?.targetRoles ?? []; track role) {
+                      <span class="chip chip-emphasis">{{ role }}</span>
                     }
-                  </ul>
+                  </div>
                 </section>
-                <section>
-                  <h4>Review before applying</h4>
-                  <ul>
-                    @for (gap of job.missingRequirements; track gap) {
-                      <li>{{ gap }}</li>
+
+                <section class="content-block">
+                  <div class="block-head">
+                    <h3>Core skills</h3>
+                    <span>Resume-derived</span>
+                  </div>
+                  <div class="chip-wrap">
+                    @for (skill of profile()?.skills ?? []; track skill) {
+                      <span class="chip">{{ skill }}</span>
+                    }
+                  </div>
+                </section>
+
+                <section class="content-block">
+                  <div class="block-head">
+                    <h3>Work preferences</h3>
+                    <span>Scoring inputs</span>
+                  </div>
+                  <div class="chip-wrap">
+                    @for (preference of profile()?.workPreferences ?? []; track preference) {
+                      <span class="chip chip-emphasis">{{ preference }}</span>
                     } @empty {
-                      <li>No major gaps detected.</li>
+                      <span class="chip">No workplace preference saved</span>
                     }
-                  </ul>
+                  </div>
+                  <div class="chip-wrap top-gap">
+                    @for (location of profile()?.preferredLocations ?? []; track location) {
+                      <span class="chip">{{ location }}</span>
+                    } @empty {
+                      <span class="chip">No preferred locations saved</span>
+                    }
+                  </div>
                 </section>
-              </div>
-
-              <div class="job-footer">
-                <span>{{ job.employmentType ?? 'Open type' }}</span>
-                @if (job.url) {
-                  <a [href]="job.url" target="_blank" rel="noreferrer">Apply at source</a>
-                }
               </div>
             </article>
-          } @empty {
-            <p class="empty-state">No live roles currently meet the threshold and filters. Lower the cutoff, relax filters, or ingest more sources.</p>
-          }
-        </div>
 
-        <div class="pager-bar">
-          <span>Page {{ matchesPage()?.page ?? 1 }} of {{ matchesPage()?.totalPages ?? 1 }}</span>
-          <div class="pager-actions">
-            <button type="button" class="secondary" (click)="goToMatchesPage((matchesPage()?.page ?? 1) - 1)" [disabled]="(matchesPage()?.page ?? 1) <= 1">
-              Previous
-            </button>
-            <button type="button" class="secondary" (click)="goToMatchesPage((matchesPage()?.page ?? 1) + 1)" [disabled]="(matchesPage()?.page ?? 1) >= (matchesPage()?.totalPages ?? 1)">
-              Next
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section class="card section-panel market-panel">
-        <div class="section-headline">
-          <div>
-            <p class="eyebrow">Market view</p>
-            <h2>All real jobs with source application URLs</h2>
-            <p class="section-copy">The complete live feed from enabled real connectors after the active filters are applied, regardless of whether each role currently scores above the shortlist threshold.</p>
-          </div>
-          <div class="badge-pill">{{ liveJobsCount() }} live roles</div>
-        </div>
-
-        <div class="jobs-grid market-grid">
-          @for (job of jobs(); track trackByTitle($index, job)) {
-            <article class="job-card market-card">
-              <div class="job-topline">
-                <span class="job-source-tag neutral-tag">{{ job.sourceName }}</span>
-                <div class="score-chip muted-score">{{ job.matchScore }}%</div>
+            <section class="card section-panel match-panel">
+              <div class="section-headline">
+                <div>
+                  <p class="eyebrow">Priority shortlist</p>
+                  <h2>Roles at {{ threshold() }}% or higher</h2>
+                  <p class="section-copy">High-conviction jobs that cleared your shortlist threshold after filters were applied.</p>
+                </div>
+                <div class="badge-pill">{{ recommendedCount() }} roles</div>
               </div>
 
-              <div class="job-heading">
-                <h3>{{ job.title }}</h3>
-                <p>{{ job.company }} • {{ job.remote ? 'Remote' : job.location }}</p>
-              </div>
+              <div class="jobs-stack priority-stack">
+                @for (job of matches(); track trackByTitle($index, job)) {
+                  <article class="job-card priority-card">
+                    <div class="job-topline">
+                      <span class="job-source-tag">{{ job.sourceName }}</span>
+                      <div class="score-chip">{{ job.matchScore }}%</div>
+                    </div>
 
-              @if (job.description) {
-                <p class="market-description">{{ job.description }}</p>
-              }
+                    <div class="job-main">
+                      <div class="job-heading">
+                        <h3>{{ job.title }}</h3>
+                        <p>{{ job.company }} â€¢ {{ job.remote ? 'Remote' : job.location }}</p>
+                      </div>
 
-              @if (job.matchScore < 100) {
-                <section class="missing-panel">
-                  <h4>Missing for 100% match</h4>
-                  <ul>
-                    @for (gap of job.missingRequirements; track gap) {
-                      <li>{{ gap }}</li>
-                    } @empty {
-                      <li>No specific missing requirements were extracted.</li>
-                    }
-                  </ul>
-                </section>
-              }
+                      <div class="job-actions">
+                        <span>{{ job.employmentType ?? 'Open type' }}</span>
+                        @if (job.url) {
+                          <a [href]="job.url" target="_blank" rel="noreferrer">Apply at source</a>
+                        }
+                      </div>
+                    </div>
 
-              <div class="job-footer">
-                <span>{{ job.employmentType ?? 'Open type' }}</span>
-                @if (job.url) {
-                  <a [href]="job.url" target="_blank" rel="noreferrer">Open listing</a>
+                    <div class="tag-toolbar">
+                      @for (tag of tagOptions; track trackByTag($index, tag)) {
+                        <button type="button" class="secondary tag-button" [class.tag-button-active]="job.userTag === tag" (click)="toggleJobTag(job, tag)" [disabled]="isTagging(job)">
+                          {{ formatJobTag(tag) }}
+                        </button>
+                      }
+                      <button type="button" class="secondary tag-button clear-tag" (click)="clearJobTag(job)" [disabled]="isTagging(job) || !job.userTag">
+                        Clear
+                      </button>
+                    </div>
+
+                    <div class="chip-wrap compact-wrap">
+                      @for (skill of job.skills; track skill) {
+                        <span class="chip">{{ skill }}</span>
+                      }
+                    </div>
+
+                    <div class="analysis-grid">
+                      <section>
+                        <h4>Why it matches</h4>
+                        <ul>
+                          @for (reason of job.matchReasons; track reason) {
+                            <li>{{ reason }}</li>
+                          }
+                        </ul>
+                      </section>
+                      <section>
+                        <h4>Review before applying</h4>
+                        <ul>
+                          @for (gap of job.missingRequirements; track gap) {
+                            <li>{{ gap }}</li>
+                          } @empty {
+                            <li>No major gaps detected.</li>
+                          }
+                        </ul>
+                      </section>
+                    </div>
+                  </article>
+                } @empty {
+                  <p class="empty-state">No live roles currently meet the threshold and filters. Lower the cutoff, relax filters, or ingest more sources.</p>
                 }
               </div>
-            </article>
-          } @empty {
-            <p class="empty-state">No live source jobs match the current filters. Reset filters or run ingestion again.</p>
+
+              <div class="pager-bar">
+                <span>Page {{ matchesPage()?.page ?? 1 }} of {{ matchesPage()?.totalPages ?? 1 }}</span>
+                <div class="pager-actions">
+                  <button type="button" class="secondary" (click)="goToMatchesPage((matchesPage()?.page ?? 1) - 1)" [disabled]="(matchesPage()?.page ?? 1) <= 1">
+                    Previous
+                  </button>
+                  <button type="button" class="secondary" (click)="goToMatchesPage((matchesPage()?.page ?? 1) + 1)" [disabled]="(matchesPage()?.page ?? 1) >= (matchesPage()?.totalPages ?? 1)">
+                    Next
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section class="card section-panel market-panel">
+              <div class="section-headline">
+                <div>
+                  <p class="eyebrow">Market view</p>
+                  <h2>Live roles below the shortlist line</h2>
+                  <p class="section-copy">The broader real-job market after filters are applied, without duplicating jobs already in your priority shortlist.</p>
+                </div>
+                <div class="badge-pill">{{ liveJobsCount() }} live roles</div>
+              </div>
+
+              <div class="jobs-stack market-stack">
+                @for (job of jobs(); track trackByTitle($index, job)) {
+                  <article class="job-card market-card">
+                    <div class="job-topline">
+                      <span class="job-source-tag neutral-tag">{{ job.sourceName }}</span>
+                      <div class="score-chip muted-score">{{ job.matchScore }}%</div>
+                    </div>
+
+                    <div class="job-main">
+                      <div class="job-heading">
+                        <h3>{{ job.title }}</h3>
+                        <p>{{ job.company }} â€¢ {{ job.remote ? 'Remote' : job.location }}</p>
+                      </div>
+
+                      <div class="job-actions">
+                        <span>{{ job.employmentType ?? 'Open type' }}</span>
+                        @if (job.url) {
+                          <a [href]="job.url" target="_blank" rel="noreferrer">Open listing</a>
+                        }
+                      </div>
+                    </div>
+
+                    <div class="tag-toolbar">
+                      @for (tag of tagOptions; track trackByTag($index, tag)) {
+                        <button type="button" class="secondary tag-button" [class.tag-button-active]="job.userTag === tag" (click)="toggleJobTag(job, tag)" [disabled]="isTagging(job)">
+                          {{ formatJobTag(tag) }}
+                        </button>
+                      }
+                      <button type="button" class="secondary tag-button clear-tag" (click)="clearJobTag(job)" [disabled]="isTagging(job) || !job.userTag">
+                        Clear
+                      </button>
+                    </div>
+
+                    @if (job.description) {
+                      <p class="market-description">{{ job.description }}</p>
+                    }
+
+                    @if (job.matchScore < 100) {
+                      <section class="missing-panel">
+                        <h4>Areas to improve for a 100% match</h4>
+                        <ul>
+                          @for (gap of job.missingRequirements; track gap) {
+                            <li>{{ gap }}</li>
+                          } @empty {
+                            <li>No specific missing requirements were extracted.</li>
+                          }
+                        </ul>
+                      </section>
+                    }
+                  </article>
+                } @empty {
+                  <p class="empty-state">No live source jobs match the current filters. Reset filters or run ingestion again.</p>
+                }
+              </div>
+
+              <div class="pager-bar">
+                <span>Page {{ jobsPage()?.page ?? 1 }} of {{ jobsPage()?.totalPages ?? 1 }}</span>
+                <div class="pager-actions">
+                  <button type="button" class="secondary" (click)="goToJobsPage((jobsPage()?.page ?? 1) - 1)" [disabled]="(jobsPage()?.page ?? 1) <= 1">
+                    Previous
+                  </button>
+                  <button type="button" class="secondary" (click)="goToJobsPage((jobsPage()?.page ?? 1) + 1)" [disabled]="(jobsPage()?.page ?? 1) >= (jobsPage()?.totalPages ?? 1)">
+                    Next
+                  </button>
+                </div>
+              </div>
+            </section>
+
+            <section class="card support-panel">
+              <div>
+                <p class="eyebrow">Support via M-PESA</p>
+                <h2>Support continued connector and scoring work</h2>
+                <p class="section-copy">
+                  If this workspace helps you move faster, you can support new ATS connectors, better matching logic, and product improvements through a Kenya-friendly payment flow.
+                </p>
+              </div>
+              <div class="support-actions">
+                <a class="support-link" href="https://flutterwave.com/ke/payment-links" target="_blank" rel="noreferrer">Support via M-PESA</a>
+                <span>Replace this with your own live support link before production.</span>
+              </div>
+            </section>
+          } @else {
+            <section class="card section-panel tagged-panel">
+              <div class="section-headline">
+                <div>
+                  <p class="eyebrow">Tagged jobs</p>
+                  <h2>Jobs you have actively classified</h2>
+                  <p class="section-copy">Use tags to keep a separate pipeline for roles you want to revisit, roles you have already applied to, and jobs you want out of your live feed.</p>
+                </div>
+                <div class="badge-pill">{{ taggedJobsCount() }} tagged</div>
+              </div>
+
+              <div class="tag-filter-row">
+                <button type="button" class="secondary page-pill" [class.page-pill-active]="taggedTagFilter() === ''" (click)="setTaggedFilter('')">All tags</button>
+                @for (tag of tagOptions; track trackByTag($index, tag)) {
+                  <button type="button" class="secondary page-pill" [class.page-pill-active]="taggedTagFilter() === tag" (click)="setTaggedFilter(tag)">
+                    {{ formatJobTag(tag) }}
+                  </button>
+                }
+              </div>
+
+              <div class="jobs-stack tagged-stack">
+                @for (job of taggedJobs(); track trackByTitle($index, job)) {
+                  <article class="job-card tagged-card">
+                    <div class="job-topline">
+                      <div class="tagged-topline-left">
+                        <span class="job-source-tag neutral-tag">{{ job.sourceName }}</span>
+                        <span class="tag-badge">{{ formatJobTag(job.userTag) }}</span>
+                      </div>
+                      <div class="score-chip muted-score">{{ job.matchScore }}%</div>
+                    </div>
+
+                    <div class="job-main">
+                      <div class="job-heading">
+                        <h3>{{ job.title }}</h3>
+                        <p>{{ job.company }} â€¢ {{ job.remote ? 'Remote' : job.location }}</p>
+                      </div>
+
+                      <div class="job-actions">
+                        <span>{{ job.employmentType ?? 'Open type' }}</span>
+                        @if (job.url) {
+                          <a [href]="job.url" target="_blank" rel="noreferrer">Open listing</a>
+                        }
+                      </div>
+                    </div>
+
+                    <div class="tag-toolbar">
+                      @for (tag of tagOptions; track trackByTag($index, tag)) {
+                        <button type="button" class="secondary tag-button" [class.tag-button-active]="job.userTag === tag" (click)="toggleJobTag(job, tag)" [disabled]="isTagging(job)">
+                          {{ formatJobTag(tag) }}
+                        </button>
+                      }
+                      <button type="button" class="secondary tag-button clear-tag" (click)="clearJobTag(job)" [disabled]="isTagging(job) || !job.userTag">
+                        Clear
+                      </button>
+                    </div>
+
+                    @if (job.description) {
+                      <p class="market-description">{{ job.description }}</p>
+                    }
+
+                    <div class="analysis-grid">
+                      <section>
+                        <h4>Why it matches</h4>
+                        <ul>
+                          @for (reason of job.matchReasons; track reason) {
+                            <li>{{ reason }}</li>
+                          }
+                        </ul>
+                      </section>
+                      <section>
+                        <h4>Areas to improve</h4>
+                        <ul>
+                          @for (gap of job.missingRequirements; track gap) {
+                            <li>{{ gap }}</li>
+                          } @empty {
+                            <li>No major gaps detected.</li>
+                          }
+                        </ul>
+                      </section>
+                    </div>
+                  </article>
+                } @empty {
+                  <p class="empty-state">No jobs are tagged in this view yet. Use the tag actions on live jobs to build your own pipeline.</p>
+                }
+              </div>
+
+              <div class="pager-bar">
+                <span>Page {{ taggedJobsPage()?.page ?? 1 }} of {{ taggedJobsPage()?.totalPages ?? 1 }}</span>
+                <div class="pager-actions">
+                  <button type="button" class="secondary" (click)="goToTaggedJobsPage((taggedJobsPage()?.page ?? 1) - 1)" [disabled]="(taggedJobsPage()?.page ?? 1) <= 1">
+                    Previous
+                  </button>
+                  <button type="button" class="secondary" (click)="goToTaggedJobsPage((taggedJobsPage()?.page ?? 1) + 1)" [disabled]="(taggedJobsPage()?.page ?? 1) >= (taggedJobsPage()?.totalPages ?? 1)">
+                    Next
+                  </button>
+                </div>
+              </div>
+            </section>
           }
-        </div>
-
-        <div class="pager-bar">
-          <span>Page {{ jobsPage()?.page ?? 1 }} of {{ jobsPage()?.totalPages ?? 1 }}</span>
-          <div class="pager-actions">
-            <button type="button" class="secondary" (click)="goToJobsPage((jobsPage()?.page ?? 1) - 1)" [disabled]="(jobsPage()?.page ?? 1) <= 1">
-              Previous
-            </button>
-            <button type="button" class="secondary" (click)="goToJobsPage((jobsPage()?.page ?? 1) + 1)" [disabled]="(jobsPage()?.page ?? 1) >= (jobsPage()?.totalPages ?? 1)">
-              Next
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <section class="card support-panel">
-        <div>
-          <p class="eyebrow">Support via M-PESA</p>
-          <h2>Support this project</h2>
-          <p class="section-copy">
-            If this workspace helps you discover strong-fit roles faster, you can support continued improvements, new ATS connectors, and better scoring through a Kenya-friendly payment flow.
-          </p>
-        </div>
-        <div class="support-actions">
-          <a class="support-link" href="https://flutterwave.com/ke/payment-links" target="_blank" rel="noreferrer">Support via M-PESA</a>
-          <span>Replace this with your own Flutterwave payment link before production.</span>
         </div>
       </section>
     }
   }
 </div>
+
+
 

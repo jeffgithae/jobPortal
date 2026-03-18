@@ -13,6 +13,26 @@ type UploadedResumeFile = {
   originalname?: string;
 };
 
+type ParsedResumeProfile = {
+  fullName?: string;
+  email?: string;
+  phone?: string;
+  headline?: string;
+  summary?: string;
+  location?: string;
+  yearsExperience?: number;
+  seniority?: string;
+  skills?: string[];
+  targetRoles?: string[];
+  certifications?: string[];
+  languages?: string[];
+  experienceHighlights?: string[];
+  preferredLocations?: string[];
+  workPreferences?: string[];
+  resumeText: string;
+  sourceResumeName?: string;
+};
+
 @Injectable()
 export class CandidateProfileService {
   constructor(
@@ -94,10 +114,8 @@ export class CandidateProfileService {
     }
 
     const profile = await this.getPrimaryProfile(ownerKey);
-    const parsedResume = await this.resumeParserService.parseResumeBuffer(
-      file.buffer,
-      file.mimetype,
-      file.originalname,
+    const parsedResume = this.normalizeParsedResume(
+      await this.resumeParserService.parseResumeBuffer(file.buffer, file.mimetype, file.originalname),
     );
     const missingRequiredFields = this.getMissingRequiredResumeFields(parsedResume);
 
@@ -128,6 +146,26 @@ export class CandidateProfileService {
     profile.resumeUpdatedAt = new Date();
 
     return profile.save();
+  }
+
+  private normalizeParsedResume(parsedResume: ParsedResumeProfile): ParsedResumeProfile {
+    const normalizedTargetRoles = this.replaceList(parsedResume.targetRoles);
+    const normalizedHeadline = parsedResume.headline?.trim() || normalizedTargetRoles[0];
+    const fallbackRoles = normalizedTargetRoles.length ? normalizedTargetRoles : normalizedHeadline ? [normalizedHeadline] : [];
+    const normalizedLocation = parsedResume.location?.trim();
+    const normalizedPreferredLocations = this.replaceList(parsedResume.preferredLocations);
+
+    return {
+      ...parsedResume,
+      headline: normalizedHeadline,
+      targetRoles: fallbackRoles,
+      preferredLocations:
+        normalizedPreferredLocations.length > 0
+          ? normalizedPreferredLocations
+          : normalizedLocation
+            ? [normalizedLocation]
+            : [],
+    };
   }
 
   private mergeList(current: string[] = [], next?: string[]) {

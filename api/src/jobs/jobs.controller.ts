@@ -1,4 +1,4 @@
-import {
+﻿import {
   Body,
   Controller,
   DefaultValuePipe,
@@ -85,6 +85,30 @@ export class JobsController {
     });
   }
 
+  @Get('tagged')
+  getTaggedJobs(
+    @Query('page', new DefaultValuePipe(1), ParseIntPipe)
+    page: number,
+    @Query('pageSize', new DefaultValuePipe(12), ParseIntPipe)
+    pageSize: number,
+    @Req() request: Request & { user: AppUserDocument },
+    @Query('tag') tag?: string,
+  ) {
+    return this.jobsService.getTaggedJobs(request.user.ownerKey, {
+      page,
+      pageSize,
+      tag: tag?.trim() || undefined,
+    });
+  }
+
+  @Post('tag')
+  updateJobTag(
+    @Req() request: Request & { user: AppUserDocument },
+    @Body() body: { matchId?: string; tag?: string | null },
+  ) {
+    return this.jobsService.updateJobTag(request.user.ownerKey, body.matchId ?? '', body.tag?.trim() || null);
+  }
+
   @Get('sources')
   getSources() {
     return this.jobsService.listSources();
@@ -126,5 +150,3 @@ export class JobsController {
     };
   }
 }
-
-

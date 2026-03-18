@@ -1,6 +1,8 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
 
+export const JOB_USER_TAG_VALUES = ['interested', 'applied', 'saved', 'not-interested'] as const;
+export type JobUserTag = (typeof JOB_USER_TAG_VALUES)[number];
 export type JobMatchDocument = HydratedDocument<JobMatch>;
 
 @Schema({ timestamps: true, collection: 'job_matches' })
@@ -41,6 +43,9 @@ export class JobMatch {
   @Prop()
   url?: string;
 
+  @Prop()
+  description?: string;
+
   @Prop({ type: [String], default: [] })
   skills: string[];
 
@@ -53,8 +58,17 @@ export class JobMatch {
   @Prop({ type: [String], default: [] })
   missingRequirements: string[];
 
+  @Prop({ enum: JOB_USER_TAG_VALUES, index: true })
+  userTag?: JobUserTag;
+
+  @Prop()
+  tagUpdatedAt?: Date;
+
   @Prop({ default: false })
   isRecommended: boolean;
+
+  @Prop({ default: false, index: true })
+  isRelevant: boolean;
 
   @Prop()
   postedAt?: Date;
@@ -62,4 +76,3 @@ export class JobMatch {
 
 export const JobMatchSchema = SchemaFactory.createForClass(JobMatch);
 JobMatchSchema.index({ ownerKey: 1, sourceJobKey: 1 }, { unique: true });
-

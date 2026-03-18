@@ -1,4 +1,4 @@
-import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
+﻿import { ChangeDetectionStrategy, Component, computed, inject, signal } from '@angular/core';
 import { DatePipe } from '@angular/common';
 import {
   AppUser,
@@ -8,10 +8,13 @@ import {
   JobFilters,
   JobMatch,
   JobSource,
+  JobUserTag,
   PaginatedResult,
   SourceCatalogEntry,
 } from './models/job-portal.models';
 import { JobPortalApiService } from './services/job-portal-api.service';
+
+type WorkspaceView = 'dashboard' | 'tagged';
 
 @Component({
   selector: 'app-root',
@@ -25,12 +28,14 @@ export class App {
   private readonly pageSize = 12;
   private readonly sessionStorageKey = 'job-portal-session-token';
   readonly employmentTypeOptions = ['Full-time', 'Contract', 'Part-time', 'Internship'];
+  readonly tagOptions: JobUserTag[] = ['interested', 'applied', 'saved', 'not-interested'];
 
   readonly authUser = signal<AppUser | null>(null);
   readonly sessionToken = signal<string | null>(this.readStoredSessionToken());
   readonly profile = signal<CandidateProfile | null>(null);
   readonly jobsPage = signal<PaginatedResult<JobMatch> | null>(null);
   readonly matchesPage = signal<PaginatedResult<JobMatch> | null>(null);
+  readonly taggedJobsPage = signal<PaginatedResult<JobMatch> | null>(null);
   readonly sources = signal<JobSource[]>([]);
   readonly sourceCatalog = signal<SourceCatalogEntry[]>([]);
   readonly ingestionSummary = signal<IngestionSummary | null>(null);
@@ -41,9 +46,13 @@ export class App {
   readonly isUploading = signal(false);
   readonly isAuthenticating = signal(false);
   readonly isSavingPreferences = signal(false);
+  readonly taggingJobId = signal<string | null>(null);
   readonly error = signal<string | null>(null);
   readonly jobsPageNumber = signal(1);
   readonly matchesPageNumber = signal(1);
+  readonly taggedJobsPageNumber = signal(1);
+  readonly activeWorkspacePage = signal<WorkspaceView>('dashboard');
+  readonly taggedTagFilter = signal<JobUserTag | ''>('');
   readonly searchFilter = signal('');
   readonly remoteOnlyFilter = signal(false);
   readonly employmentTypeFilter = signal('');
@@ -57,7 +66,9 @@ export class App {
   readonly isAuthenticated = computed(() => Boolean(this.sessionToken() && this.authUser()));
   readonly jobs = computed(() => this.jobsPage()?.items ?? []);
   readonly matches = computed(() => this.matchesPage()?.items ?? []);
+  readonly taggedJobs = computed(() => this.taggedJobsPage()?.items ?? []);
   readonly recommendedCount = computed(() => this.matchesPage()?.total ?? 0);
+  readonly taggedJobsCount = computed(() => this.taggedJobsPage()?.total ?? 0);
   readonly strongestMatch = computed(() => this.matches()[0] ?? null);
   readonly enabledSources = computed(() => this.sources().filter((source) => source.enabled));
   readonly readyCatalogEntries = computed(() => this.sourceCatalog().filter((entry) => entry.status === 'ready' || entry.status === 'next'));
@@ -169,7 +180,7 @@ export class App {
         this.sourceTypeFilter.set('');
       }
 
-      await Promise.all([this.loadJobsPage(), this.loadMatchesPage()]);
+      await Promise.all([this.loadJobsPage(), this.loadMatchesPage(), this.loadTaggedJobsPage()]);
     } catch (error) {
       this.error.set(this.getErrorMessage(error));
     } finally {
@@ -187,6 +198,7 @@ export class App {
       this.ingestionSummary.set(summary);
       this.jobsPageNumber.set(1);
       this.matchesPageNumber.set(1);
+      this.taggedJobsPageNumber.set(1);
       await this.loadDashboard();
     } catch (error) {
       this.error.set(this.getErrorMessage(error));
@@ -199,9 +211,10 @@ export class App {
     const threshold = Number(value);
     this.threshold.set(Number.isFinite(threshold) ? threshold : 85);
     this.matchesPageNumber.set(1);
+    this.jobsPageNumber.set(1);
 
     try {
-      await this.loadMatchesPage();
+      await Promise.all([this.loadJobsPage(), this.loadMatchesPage()]);
     } catch (error) {
       this.error.set(this.getErrorMessage(error));
     }
@@ -226,6 +239,16 @@ export class App {
     this.sourceTypeFilter.set('');
     this.locationFilter.set('');
     await this.applyFilters();
+  }
+
+  setWorkspacePage(view: WorkspaceView) {
+    this.activeWorkspacePage.set(view);
+  }
+
+  async setTaggedFilter(tag: JobUserTag | '') {
+    this.taggedTagFilter.set(tag);
+    this.taggedJobsPageNumber.set(1);
+    await this.loadTaggedJobsPage();
   }
 
   onFileSelected(event: Event) {
@@ -256,6 +279,7 @@ export class App {
       this.ingestionSummary.set(result.ingestionSummary);
       this.jobsPageNumber.set(1);
       this.matchesPageNumber.set(1);
+      this.taggedJobsPageNumber.set(1);
       this.selectedFile.set(null);
       this.syncPreferenceDraft(result.profile);
       await this.loadDashboard();
@@ -290,11 +314,57 @@ export class App {
       await this.api.rescoreMatches(sessionToken);
       this.jobsPageNumber.set(1);
       this.matchesPageNumber.set(1);
+      this.taggedJobsPageNumber.set(1);
       await this.loadDashboard();
     } catch (error) {
       this.error.set(this.getErrorMessage(error));
     } finally {
       this.isSavingPreferences.set(false);
+    }
+  }
+
+  async toggleJobTag(job: JobMatch, tag: JobUserTag) {
+    const sessionToken = this.requireSessionToken();
+    const matchId = this.getMatchId(job);
+
+    if (!matchId) {
+      this.error.set('This job cannot be tagged because it does not have a stored match id yet.');
+      return;
+    }
+
+    this.error.set(null);
+    this.taggingJobId.set(matchId);
+
+    try {
+      const nextTag = job.userTag === tag ? null : tag;
+      await this.api.updateJobTag(sessionToken, matchId, nextTag);
+      await Promise.all([this.loadJobsPage(), this.loadMatchesPage(), this.loadTaggedJobsPage()]);
+    } catch (error) {
+      this.error.set(this.getErrorMessage(error));
+    } finally {
+      this.taggingJobId.set(null);
+    }
+  }
+
+  async clearJobTag(job: JobMatch) {
+    const sessionToken = this.requireSessionToken();
+    const matchId = this.getMatchId(job);
+
+    if (!matchId) {
+      this.error.set('This job cannot be updated because it does not have a stored match id yet.');
+      return;
+    }
+
+    this.error.set(null);
+    this.taggingJobId.set(matchId);
+
+    try {
+      await this.api.updateJobTag(sessionToken, matchId, null);
+      await Promise.all([this.loadJobsPage(), this.loadMatchesPage(), this.loadTaggedJobsPage()]);
+    } catch (error) {
+      this.error.set(this.getErrorMessage(error));
+    } finally {
+      this.taggingJobId.set(null);
     }
   }
 
@@ -320,6 +390,21 @@ export class App {
     await this.loadMatchesPage();
   }
 
+  async goToTaggedJobsPage(page: number) {
+    const totalPages = this.taggedJobsPage()?.totalPages ?? 0;
+
+    if (page < 1 || (totalPages > 0 && page > totalPages)) {
+      return;
+    }
+
+    this.taggedJobsPageNumber.set(page);
+    await this.loadTaggedJobsPage();
+  }
+
+  isTagging(job: JobMatch) {
+    return this.taggingJobId() === this.getMatchId(job);
+  }
+
   trackByTitle(_: number, item: JobMatch) {
     return item.id ?? item._id ?? `${item.ownerKey}-${item.company}-${item.title}`;
   }
@@ -330,6 +415,10 @@ export class App {
 
   trackByCatalog(_: number, item: SourceCatalogEntry) {
     return item.key;
+  }
+
+  trackByTag(_: number, item: JobUserTag) {
+    return item;
   }
 
   formatSourceType(type: string) {
@@ -344,6 +433,21 @@ export class App {
         return 'Djinni';
       default:
         return type;
+    }
+  }
+
+  formatJobTag(tag?: JobUserTag) {
+    switch (tag) {
+      case 'interested':
+        return 'Interested';
+      case 'applied':
+        return 'Applied';
+      case 'saved':
+        return 'Saved';
+      case 'not-interested':
+        return 'Not interested';
+      default:
+        return 'Untagged';
     }
   }
 
@@ -374,8 +478,11 @@ export class App {
     this.setSession(session.session.token, session.user);
     this.jobsPageNumber.set(1);
     this.matchesPageNumber.set(1);
+    this.taggedJobsPageNumber.set(1);
     this.selectedFile.set(null);
     this.ingestionSummary.set(null);
+    this.activeWorkspacePage.set('dashboard');
+    this.taggedTagFilter.set('');
     await this.loadDashboard();
   }
 
@@ -391,6 +498,13 @@ export class App {
     return this.api
       .getMatches(sessionToken, this.threshold(), this.matchesPageNumber(), this.pageSize, this.buildFilters())
       .then((page) => this.matchesPage.set(page));
+  }
+
+  private loadTaggedJobsPage() {
+    const sessionToken = this.requireSessionToken();
+    return this.api
+      .getTaggedJobs(sessionToken, this.taggedJobsPageNumber(), this.pageSize, this.taggedTagFilter())
+      .then((page) => this.taggedJobsPage.set(page));
   }
 
   private buildFilters(): JobFilters {
@@ -410,6 +524,10 @@ export class App {
     this.remotePreference.set(workPreferences.has('remote'));
     this.hybridPreference.set(workPreferences.has('hybrid'));
     this.onsitePreference.set(workPreferences.has('onsite'));
+  }
+
+  private getMatchId(job: JobMatch) {
+    return job.id ?? job._id ?? null;
   }
 
   private isSupportedResumeFile(file: File) {
@@ -442,12 +560,16 @@ export class App {
     this.profile.set(null);
     this.jobsPage.set(null);
     this.matchesPage.set(null);
+    this.taggedJobsPage.set(null);
     this.sources.set([]);
     this.sourceCatalog.set([]);
     this.ingestionSummary.set(null);
     this.selectedFile.set(null);
     this.jobsPageNumber.set(1);
     this.matchesPageNumber.set(1);
+    this.taggedJobsPageNumber.set(1);
+    this.activeWorkspacePage.set('dashboard');
+    this.taggedTagFilter.set('');
     this.searchFilter.set('');
     this.remoteOnlyFilter.set(false);
     this.employmentTypeFilter.set('');
@@ -457,6 +579,7 @@ export class App {
     this.remotePreference.set(false);
     this.hybridPreference.set(false);
     this.onsitePreference.set(false);
+    this.taggingJobId.set(null);
     this.isLoading.set(false);
 
     if (typeof window !== 'undefined') {
@@ -496,5 +619,3 @@ export class App {
     return 'The dashboard could not reach the API. Start the Nest server and MongoDB, then refresh.';
   }
 }
-
-

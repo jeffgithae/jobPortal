@@ -1,8 +1,10 @@
-export interface EducationRecord {
+﻿export interface EducationRecord {
   institution: string;
   degree: string;
   period?: string;
 }
+
+export type JobUserTag = 'interested' | 'applied' | 'saved' | 'not-interested';
 
 export interface AppUser {
   _id?: string;
@@ -72,6 +74,8 @@ export interface JobMatch {
   sourceName: string;
   sourceType: string;
   isRecommended: boolean;
+  userTag?: JobUserTag;
+  tagUpdatedAt?: string;
   createdAt?: string;
 }
 

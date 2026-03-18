@@ -5,9 +5,50 @@ import { NormalizedJobListing } from '../source-adapters/job-source-adapter.inte
 type MatchBreakdown = {
   totalScore: number;
   isRecommended: boolean;
+  isRelevant: boolean;
   reasons: string[];
   missingRequirements: string[];
 };
+
+const DOMAIN_STOP_WORDS = new Set([
+  'about',
+  'across',
+  'ability',
+  'aligned',
+  'business',
+  'candidate',
+  'company',
+  'current',
+  'delivery',
+  'digital',
+  'direct',
+  'enterprise',
+  'experience',
+  'focus',
+  'great',
+  'healthcare',
+  'leading',
+  'management',
+  'manager',
+  'office',
+  'onsite',
+  'people',
+  'process',
+  'product',
+  'project',
+  'remote',
+  'required',
+  'role',
+  'software',
+  'solution',
+  'systems',
+  'technical',
+  'technology',
+  'their',
+  'through',
+  'using',
+  'years',
+]);
 
 @Injectable()
 export class MatchingService {
@@ -19,132 +60,155 @@ export class MatchingService {
     const candidateSkills = new Set(candidateProfile.skills.map((skill) => skill.toLowerCase()));
     const requiredSkills = (job.skills ?? []).map((skill) => skill.toLowerCase());
     const matchedSkills = requiredSkills.filter((skill) => candidateSkills.has(skill));
-    const titleScore = this.scoreTitle(candidateProfile.targetRoles, job.title);
-    const skillScore = this.scoreSkills(requiredSkills, matchedSkills.length);
+    const titleScore = this.scoreTitle(candidateProfile, job.title);
+    const skillScore = this.scoreSkills(job, requiredSkills, matchedSkills.length, candidateProfile);
     const experienceScore = this.scoreExperience(candidateProfile.yearsExperience, job.minExperienceYears);
     const seniorityScore = this.scoreSeniority(candidateProfile.seniority, job.seniority);
     const domainScore = this.scoreDomainAlignment(candidateProfile, job);
     const locationScore = this.scoreLocation(candidateProfile, job.location, job.remote);
     const totalScore = titleScore + skillScore + experienceScore + seniorityScore + domainScore + locationScore;
     const workplaceType = this.resolveWorkplaceType(job.location, job.remote);
+    const isRelevant = this.isRelevantMatch(titleScore, matchedSkills.length, domainScore, totalScore);
 
     const reasons = [
-      matchedSkills.length ? `${matchedSkills.length} aligned core skills: ${matchedSkills.slice(0, 5).join(', ')}` : undefined,
-      titleScore >= 14 ? `Target-role alignment is strong for "${job.title}".` : undefined,
-      experienceScore >= 12 ? 'Experience fit is solid for the stated seniority and years required.' : undefined,
+      matchedSkills.length ? `${matchedSkills.length} aligned core skills: ${matchedSkills.slice(0, 6).join(', ')}` : undefined,
+      titleScore >= 18 ? `Role family is aligned with "${job.title}".` : undefined,
+      experienceScore >= 10 ? 'Experience fit is solid for the level of the role.' : undefined,
       locationScore >= 8 ? `Workplace preference aligns (${workplaceType}${job.location ? ` • ${job.location}` : ''}).` : undefined,
-      domainScore >= 8 ? 'Domain overlap detected across architecture, leadership, and delivery.' : undefined,
+      domainScore >= 8 ? 'Strong domain overlap detected between the resume and this role.' : undefined,
     ].filter((reason): reason is string => Boolean(reason));
 
     const missingRequirements = (job.skills ?? []).filter((skill) => !candidateSkills.has(skill.toLowerCase()));
 
     return {
       totalScore,
-      isRecommended: totalScore >= threshold,
+      isRecommended: isRelevant && totalScore >= threshold,
+      isRelevant,
       reasons,
       missingRequirements,
     };
   }
 
-  private scoreTitle(targetRoles: string[], title: string) {
+  private scoreTitle(candidateProfile: CandidateProfileDocument, title: string) {
     const normalizedTitle = title.toLowerCase();
-    const matchingRoles = targetRoles.filter((role) =>
-      normalizedTitle.includes(role.toLowerCase()) ||
-      role.toLowerCase().split(/\W+/).some((token) => token.length > 4 && normalizedTitle.includes(token)),
+    const roleFamilies = this.collectRoleFamilies(candidateProfile);
+
+    if (roleFamilies.some((family) => this.matchesRoleFamily(normalizedTitle, family))) {
+      return 26;
+    }
+
+    const targetRoles = (candidateProfile.targetRoles ?? []).map((role) => role.toLowerCase());
+    const directRoleMatch = targetRoles.some((role) => normalizedTitle.includes(role));
+    if (directRoleMatch) {
+      return 24;
+    }
+
+    const tokenOverlap = targetRoles.some((role) =>
+      role
+        .split(/\W+/)
+        .filter((token) => token.length > 3)
+        .some((token) => normalizedTitle.includes(token)),
     );
 
-    if (matchingRoles.some((role) => normalizedTitle.includes(role.toLowerCase()))) {
-      return 20;
-    }
-    if (matchingRoles.length) {
-      return 15;
-    }
-    if (/engineer|developer|architect|lead/.test(normalizedTitle)) {
-      return 10;
+    if (tokenOverlap) {
+      return 14;
     }
 
-    return 4;
+    return 0;
   }
 
-  private scoreSkills(requiredSkills: string[], matchedSkillCount: number) {
+  private scoreSkills(
+    job: Pick<NormalizedJobListing, 'title' | 'description' | 'skills'>,
+    requiredSkills: string[],
+    matchedSkillCount: number,
+    candidateProfile: CandidateProfileDocument,
+  ) {
     if (!requiredSkills.length) {
-      return 20;
+      const candidateSignals = this.toSearchableCandidateText(candidateProfile);
+      const jobSignals = `${job.title} ${job.description ?? ''}`.toLowerCase();
+      const overlapCount = this.extractMeaningfulTokens(candidateSignals)
+        .filter((token) => jobSignals.includes(token))
+        .length;
+
+      if (overlapCount >= 3) {
+        return 10;
+      }
+      if (overlapCount >= 1) {
+        return 5;
+      }
+
+      return 0;
     }
 
-    return Math.round((matchedSkillCount / requiredSkills.length) * 35);
+    return Math.round((matchedSkillCount / requiredSkills.length) * 26);
   }
 
   private scoreExperience(candidateYearsExperience: number, minimumYearsExperience?: number) {
     if (!minimumYearsExperience) {
-      return 12;
+      return candidateYearsExperience >= 2 ? 8 : 4;
     }
     if (candidateYearsExperience >= minimumYearsExperience) {
-      return 15;
+      return 14;
     }
 
-    return Math.max(4, Math.round((candidateYearsExperience / minimumYearsExperience) * 15));
+    return Math.max(0, Math.round((candidateYearsExperience / minimumYearsExperience) * 14));
   }
 
   private scoreSeniority(candidateSeniority?: string, jobSeniority?: string) {
     if (!jobSeniority) {
-      return 8;
+      return candidateSeniority ? 4 : 2;
     }
     if (candidateSeniority === jobSeniority) {
       return 10;
     }
     if (candidateSeniority === 'lead' && jobSeniority === 'senior') {
-      return 9;
-    }
-    if (candidateSeniority === 'senior' && jobSeniority === 'lead') {
       return 8;
     }
+    if (candidateSeniority === 'senior' && jobSeniority === 'lead') {
+      return 7;
+    }
 
-    return 4;
+    return 0;
   }
 
   private scoreDomainAlignment(
     candidateProfile: CandidateProfileDocument,
     job: Pick<NormalizedJobListing, 'description' | 'title'>,
   ) {
-    const candidateSignals = [
-      ...candidateProfile.skills,
-      ...candidateProfile.targetRoles,
-      ...candidateProfile.experienceHighlights,
-    ].join(' ').toLowerCase();
-    const jobSignals = `${job.title} ${job.description ?? ''}`.toLowerCase();
-    const domainTokens = ['lead', 'architecture', 'security', 'azure', 'erp', 'crm', 'board', 'product'];
-    const overlapCount = domainTokens.filter((token) => candidateSignals.includes(token) && jobSignals.includes(token)).length;
+    const candidateSignals = this.extractMeaningfulTokens(this.toSearchableCandidateText(candidateProfile));
+    const jobSignals = new Set(this.extractMeaningfulTokens(`${job.title} ${job.description ?? ''}`));
+    const overlapTokens = candidateSignals.filter((token) => jobSignals.has(token));
 
-    if (overlapCount >= 3) {
+    if (overlapTokens.length >= 4) {
+      return 14;
+    }
+    if (overlapTokens.length >= 3) {
       return 10;
     }
-    if (overlapCount >= 2) {
-      return 8;
-    }
-    if (overlapCount >= 1) {
-      return 5;
+    if (overlapTokens.length >= 2) {
+      return 6;
     }
 
-    return 2;
+    return 0;
   }
 
   private scoreLocation(candidateProfile: CandidateProfileDocument, location?: string, remote?: boolean) {
     const normalizedPreferences = new Set((candidateProfile.workPreferences ?? []).map((value) => value.toLowerCase()));
     const workplaceType = this.resolveWorkplaceType(location, remote);
-    let score = 4;
+    let score = 3;
 
     if (!normalizedPreferences.size) {
-      score = workplaceType === 'remote' ? 10 : 7;
+      score = workplaceType === 'remote' ? 8 : 6;
     } else if (normalizedPreferences.has(workplaceType)) {
       score = 10;
     } else if (workplaceType === 'hybrid' && normalizedPreferences.has('remote')) {
-      score = 8;
+      score = 7;
     } else if (workplaceType === 'remote' && normalizedPreferences.has('hybrid')) {
-      score = 8;
+      score = 7;
     } else if (workplaceType === 'onsite' && normalizedPreferences.has('hybrid')) {
-      score = 6;
+      score = 4;
     } else if (workplaceType === 'onsite' && normalizedPreferences.has('remote') && !normalizedPreferences.has('onsite')) {
-      score = 2;
+      score = 0;
     }
 
     const preferredLocations = candidateProfile.preferredLocations.map((value) => value.toLowerCase());
@@ -157,6 +221,62 @@ export class MatchingService {
     }
 
     return score;
+  }
+
+  private collectRoleFamilies(candidateProfile: CandidateProfileDocument) {
+    const roleText = [candidateProfile.headline, ...(candidateProfile.targetRoles ?? [])].join(' ').toLowerCase();
+    const families = new Set<string>();
+
+    if (/(project manager|technical project manager|project management|program manager|program management|management officer|implementation manager|delivery manager|project officer)/i.test(roleText)) {
+      families.add('project-management');
+    }
+    if (/(product manager|product owner|product management)/i.test(roleText)) {
+      families.add('product');
+    }
+    if (/(business analyst|analyst)/i.test(roleText)) {
+      families.add('analysis');
+    }
+    if (/(engineer|developer|software|full-stack|frontend|backend|architect)/i.test(roleText)) {
+      families.add('engineering');
+    }
+    if (/(operations|coordinator|administrator)/i.test(roleText)) {
+      families.add('operations');
+    }
+
+    return [...families];
+  }
+
+  private matchesRoleFamily(title: string, family: string) {
+    switch (family) {
+      case 'project-management':
+        return /(project manager|technical project manager|project management|project officer|program manager|delivery manager|implementation manager)/i.test(title);
+      case 'product':
+        return /(product manager|product owner|product lead)/i.test(title);
+      case 'analysis':
+        return /(business analyst|data analyst|systems analyst|analyst)/i.test(title);
+      case 'engineering':
+        return /(engineer|developer|architect|software)/i.test(title);
+      case 'operations':
+        return /(operations|coordinator|administrator|officer)/i.test(title);
+      default:
+        return false;
+    }
+  }
+
+  private isRelevantMatch(titleScore: number, matchedSkillCount: number, domainScore: number, totalScore: number) {
+    if (titleScore >= 14) {
+      return true;
+    }
+
+    if (matchedSkillCount >= 2) {
+      return true;
+    }
+
+    if (domainScore >= 10) {
+      return true;
+    }
+
+    return totalScore >= 65 && domainScore >= 6;
   }
 
   private resolveWorkplaceType(location?: string, remote?: boolean) {
@@ -175,5 +295,22 @@ export class MatchingService {
     }
 
     return 'onsite';
+  }
+
+  private toSearchableCandidateText(candidateProfile: CandidateProfileDocument) {
+    return [
+      candidateProfile.headline,
+      candidateProfile.summary,
+      ...(candidateProfile.skills ?? []),
+      ...(candidateProfile.targetRoles ?? []),
+      ...(candidateProfile.experienceHighlights ?? []),
+    ]
+      .filter(Boolean)
+      .join(' ')
+      .toLowerCase();
+  }
+
+  private extractMeaningfulTokens(value: string) {
+    return [...new Set(value.split(/\W+/).filter((token) => token.length > 4 && !DOMAIN_STOP_WORDS.has(token)))];
   }
 }

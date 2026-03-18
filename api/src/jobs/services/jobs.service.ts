@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { InjectModel } from '@nestjs/mongoose';
 import { FilterQuery, Model } from 'mongoose';
@@ -7,7 +7,7 @@ import { CandidateProfileService } from '../../candidate/services/candidate-prof
 import { DEFAULT_SOURCE_SEEDS } from '../../shared/demo-data';
 import { DEFAULT_INGEST_CRON, DEFAULT_INGEST_TIMEZONE, DEFAULT_MATCH_THRESHOLD, DEFAULT_OWNER_KEY } from '../../shared/system-defaults';
 import { CreateJobSourceDto } from '../dto/create-job-source.dto';
-import { JobMatch, JobMatchDocument } from '../schemas/job-match.schema';
+import { JOB_USER_TAG_VALUES, JobMatch, JobMatchDocument, JobUserTag } from '../schemas/job-match.schema';
 import { JobPosting, JobPostingDocument } from '../schemas/job-posting.schema';
 import { JobSource, JobSourceDocument } from '../schemas/job-source.schema';
 import { SOURCE_CATALOG } from '../source-catalog';
@@ -15,6 +15,8 @@ import { NormalizedJobListing } from '../source-adapters/job-source-adapter.inte
 import { JobIntelligenceService } from './job-intelligence.service';
 import { MatchingService } from './matching.service';
 import { JobSourceRegistryService } from './job-source-registry.service';
+
+const MIN_VISIBLE_MATCH_SCORE = 35;
 
 interface JobFilterOptions {
   realOnly?: boolean;
@@ -24,6 +26,7 @@ interface JobFilterOptions {
   sourceType?: string;
   location?: string;
   excludeThreshold?: number;
+  includeDismissed?: boolean;
 }
 
 interface PaginatedQueryOptions extends JobFilterOptions {
@@ -33,6 +36,12 @@ interface PaginatedQueryOptions extends JobFilterOptions {
 
 interface MatchQueryOptions extends PaginatedQueryOptions {
   threshold?: number;
+}
+
+interface TaggedJobQueryOptions {
+  page?: number;
+  pageSize?: number;
+  tag?: string;
 }
 
 @Injectable()
@@ -135,6 +144,10 @@ export class JobsService {
       matchScore: {
         $gte: DEFAULT_MATCH_THRESHOLD,
       },
+      isRelevant: true,
+      userTag: {
+        $ne: 'not-interested',
+      },
     });
 
     return {
@@ -204,6 +217,62 @@ export class JobsService {
     return this.paginateMatches(filter, pagination.page, pagination.pageSize);
   }
 
+  async getTaggedJobs(ownerKey = DEFAULT_OWNER_KEY, options: TaggedJobQueryOptions = {}) {
+    await this.candidateProfileService.getPrimaryProfile(ownerKey);
+    await this.ensureOwnerMatchesInitialized(ownerKey);
+
+    const pagination = this.normalizePagination(options.page, options.pageSize);
+    const filter: FilterQuery<JobMatchDocument> = {
+      ownerKey,
+      userTag: options.tag ? options.tag : { $in: [...JOB_USER_TAG_VALUES] },
+    };
+
+    return this.paginateMatches(filter, pagination.page, pagination.pageSize, {
+      tagUpdatedAt: -1,
+      updatedAt: -1,
+      matchScore: -1,
+    });
+  }
+
+  async updateJobTag(ownerKey: string, matchId: string, tag: string | null) {
+    if (!matchId.trim()) {
+      throw new BadRequestException('A job match id is required to update its tag.');
+    }
+
+    if (tag && !JOB_USER_TAG_VALUES.includes(tag as JobUserTag)) {
+      throw new BadRequestException('Unsupported job tag.');
+    }
+
+    const updated = await this.jobMatchModel.findOneAndUpdate(
+      {
+        _id: matchId,
+        ownerKey,
+      },
+      tag
+        ? {
+            $set: {
+              userTag: tag as JobUserTag,
+              tagUpdatedAt: new Date(),
+            },
+          }
+        : {
+            $unset: {
+              userTag: 1,
+              tagUpdatedAt: 1,
+            },
+          },
+      {
+        new: true,
+      },
+    );
+
+    if (!updated) {
+      throw new NotFoundException('The selected job could not be found for this account.');
+    }
+
+    return updated;
+  }
+
   async listSources() {
     return this.jobSourceModel.find().sort({ enabled: -1, name: 1 });
   }
@@ -233,6 +302,7 @@ export class JobsService {
   private buildMatchFilter(ownerKey: string, options: { threshold?: number } & JobFilterOptions) {
     const filter: FilterQuery<JobMatchDocument> = {
       ownerKey,
+      isRelevant: true,
     };
 
     if (typeof options.threshold === 'number') {
@@ -241,7 +311,14 @@ export class JobsService {
       };
     } else if (typeof options.excludeThreshold === 'number') {
       filter.matchScore = {
+        $gte: MIN_VISIBLE_MATCH_SCORE,
         $lt: options.excludeThreshold,
+      };
+    }
+
+    if (!options.includeDismissed) {
+      filter.userTag = {
+        $ne: 'not-interested',
       };
     }
 
@@ -296,12 +373,13 @@ export class JobsService {
     filter: FilterQuery<JobMatchDocument>,
     page: number,
     pageSize: number,
+    sort: Record<string, 1 | -1> = { matchScore: -1, postedAt: -1, updatedAt: -1 },
   ) {
     const [total, items] = await Promise.all([
       this.jobMatchModel.countDocuments(filter),
       this.jobMatchModel
         .find(filter)
-        .sort({ matchScore: -1, postedAt: -1, updatedAt: -1 })
+        .sort(sort)
         .skip((page - 1) * pageSize)
         .limit(pageSize),
     ]);
@@ -351,11 +429,13 @@ export class JobsService {
             remote: job.remote,
             employmentType: job.employmentType,
             url: job.url,
+            description: job.description,
             skills: job.skills ?? [],
             matchScore: match.totalScore,
             matchReasons: match.reasons,
             missingRequirements: match.missingRequirements,
             isRecommended: match.isRecommended,
+            isRelevant: match.isRelevant,
             postedAt: job.postedAt,
           },
         },
@@ -427,5 +507,9 @@ export class JobsService {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }
+
+
+
+
 
 

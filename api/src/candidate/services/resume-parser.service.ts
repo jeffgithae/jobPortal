@@ -22,6 +22,48 @@ type ParsedResume = {
 };
 
 const KNOWN_SKILLS = [
+  'Project Management',
+  'Technical Project Management',
+  'Program Management',
+  'Product Management',
+  'Agile',
+  'Scrum',
+  'Kanban',
+  'Stakeholder Management',
+  'Stakeholder Engagement',
+  'Risk Management',
+  'Risk Planning',
+  'Change Management',
+  'Process Improvement',
+  'Release Planning',
+  'Roadmapping',
+  'Backlog Refinement',
+  'Backlog Management',
+  'User Story Definition',
+  'Prioritization',
+  'Trade-off Analysis',
+  'System Integration',
+  'Interoperability',
+  'ERP Management',
+  'Digital Health',
+  'HMIS',
+  'SAP',
+  'LabWare',
+  'PACS',
+  'Jira',
+  'Trello',
+  'Figma',
+  'Adobe XD',
+  'MS Project',
+  'G-Suite',
+  'Git',
+  'Power BI',
+  'Apache NiFi',
+  'ETL',
+  'Data Science',
+  'Data Engineering',
+  'Data Analysis',
+  'Machine Learning',
   'Angular',
   'TypeScript',
   'JavaScript',
@@ -49,17 +91,9 @@ const KNOWN_SKILLS = [
   'Docker',
   'Kubernetes',
   'CI/CD',
-  'Git',
   'MySQL',
   'MongoDB',
   'PostgreSQL',
-  'Power BI',
-  'Apache NiFi',
-  'ETL',
-  'Data Science',
-  'Data Engineering',
-  'Data Analysis',
-  'Machine Learning',
   'Security Auditing',
   'Vulnerability Assessment',
   'OWASP',
@@ -67,11 +101,17 @@ const KNOWN_SKILLS = [
   'Team Mentoring',
   'Code Reviews',
   'Solution Architecture',
-  'Agile',
-  'Drupal'
+  'Drupal',
+  'Leadership',
+  'Communication',
+  'Teamwork',
+  'Public Speaking',
+  'Decision Making'
 ];
 
 const KNOWN_CERTIFICATIONS = [
+  'Project Management Professional',
+  'PMP',
   'Microsoft Azure Developer Associate',
   'Azure DevOps Expert',
   'Lead Auditor Certification',
@@ -120,16 +160,52 @@ export class ResumeParserService {
       );
     }
 
-    const topLines = normalizedText
+    const lines = normalizedText
       .split('\n')
       .map((line) => line.trim())
-      .filter(Boolean)
-      .slice(0, 12);
-    const headline = this.extractHeadline(topLines, normalizedText);
+      .filter(Boolean);
+    const topLines = lines.slice(0, 16);
     const summary =
-      this.extractSection(normalizedText, 'Professional Summary', 'Core Compet') ??
-      this.extractSection(normalizedText, 'Summary', 'Experience') ??
-      this.extractSection(normalizedText, 'Profile', 'Experience');
+      this.extractSection(normalizedText, 'Professional Summary', [
+        'Core Competencies',
+        'Technical Skills',
+        'Project Management',
+        'Soft Skills',
+        'Skills',
+        'Work History',
+        'Experience',
+        'Education',
+        'Certifications',
+        'Awards & Recognitions',
+        'Awards',
+        'Languages',
+      ]) ??
+      this.extractSection(normalizedText, 'Summary', [
+        'Core Competencies',
+        'Technical Skills',
+        'Project Management',
+        'Soft Skills',
+        'Skills',
+        'Work History',
+        'Experience',
+        'Education',
+        'Certifications',
+        'Awards & Recognitions',
+        'Awards',
+        'Languages',
+      ]) ??
+      this.extractSection(normalizedText, 'Profile', [
+        'Core Competencies',
+        'Technical Skills',
+        'Project Management',
+        'Soft Skills',
+        'Skills',
+        'Work History',
+        'Experience',
+        'Education',
+        'Certifications',
+      ]);
+    const headline = this.extractHeadline(topLines, normalizedText, summary);
     const location = this.extractLocation(topLines, normalizedText);
 
     return {
@@ -140,9 +216,9 @@ export class ResumeParserService {
       summary,
       location,
       yearsExperience: this.extractYearsExperience(normalizedText),
-      seniority: this.inferSeniority(headline ?? normalizedText),
-      skills: this.extractFromDictionary(normalizedText, KNOWN_SKILLS),
-      targetRoles: this.extractTargetRoles(headline, normalizedText),
+      seniority: this.inferSeniority(`${headline ?? ''} ${summary ?? ''}`),
+      skills: this.extractSkills(normalizedText),
+      targetRoles: this.extractTargetRoles(headline, summary, normalizedText),
       certifications: this.extractFromDictionary(normalizedText, KNOWN_CERTIFICATIONS),
       languages: this.extractFromDictionary(normalizedText, KNOWN_LANGUAGES),
       experienceHighlights: this.extractHighlights(normalizedText),
@@ -174,26 +250,41 @@ export class ResumeParserService {
     return candidate?.trim();
   }
 
-  private extractHeadline(topLines: string[], text: string) {
+  private extractHeadline(topLines: string[], text: string, summary?: string) {
     const labeledMatch = text.match(/Position Proposed\s*:\s*([^\n]+)/i)?.[1]?.trim();
     if (labeledMatch) {
-      return this.cleanHeadline(labeledMatch);
+      return this.normalizeRoleCandidate(labeledMatch);
     }
 
-    const fallback = topLines.find(
+    const summaryLead = this.extractRoleFromSummary(summary);
+    if (summaryLead) {
+      return summaryLead;
+    }
+
+    const topRole = topLines.find(
       (line, index) =>
         index > 0 &&
         !/@/.test(line) &&
         !this.looksLikePhone(line) &&
         !this.looksLikeLocation(line) &&
-        !this.isSectionHeading(line),
+        !this.isSectionHeading(line) &&
+        this.looksLikeRole(line),
     );
 
-    return fallback ? this.cleanHeadline(fallback) : undefined;
+    if (topRole) {
+      return this.normalizeRoleCandidate(topRole);
+    }
+
+    return this.extractRoleLikeLines(text)[0];
   }
 
-  private extractSection(text: string, startLabel: string, endLabel: string) {
-    const regex = new RegExp(`${startLabel}([\\s\\S]*?)${endLabel}`, 'i');
+  private extractSection(text: string, startLabel: string, endLabels: string[]) {
+    const escapedStart = this.escapeRegex(startLabel);
+    const escapedEnds = endLabels.map((label) => this.escapeRegex(label)).join('|');
+    const regex = new RegExp(
+      `(?:^|\\n)${escapedStart}\\s*(?:\\n|:)?\\s*([\\s\\S]*?)(?=\\n(?:${escapedEnds})\\s*(?:\\n|$)|$)`,
+      'im',
+    );
     return text.match(regex)?.[1]?.trim();
   }
 
@@ -212,16 +303,21 @@ export class ResumeParserService {
       return nationality === 'Kenyan' ? 'Kenya' : nationality;
     }
 
+    const inlineLocation = topLines.find((line) => this.looksLikeLocation(line));
+    if (inlineLocation) {
+      return inlineLocation.split('|')[0]?.trim();
+    }
+
     return topLines.find((line) => this.looksLikeLocation(line));
   }
 
   private extractYearsExperience(text: string) {
-    const yearsMatch = text.match(/(\d+)\+?\s+years of experience/i);
-    if (yearsMatch) {
-      return Number(yearsMatch[1]);
+    const directMatch = text.match(/(?:with|having|over)?\s*(\d+)\+?\s+years?(?:\s+of)?\s+experience/i);
+    if (directMatch) {
+      return Number(directMatch[1]);
     }
 
-    const startYears = [...text.matchAll(/From:\s*(?:\d{1,2}(?:st|nd|rd|th)?\s*)?(?:[A-Za-z]+\s*)?(\d{4})/gi)]
+    const startYears = [...text.matchAll(/(?:from|to)\s*:?\s*(?:\d{1,2}(?:st|nd|rd|th)?\s*)?(?:[A-Za-z]+\s*)?(\d{4})/gi)]
       .map((match) => Number(match[1]))
       .filter((year) => Number.isFinite(year));
 
@@ -234,27 +330,70 @@ export class ResumeParserService {
   }
 
   private extractFromDictionary(text: string, dictionary: string[]) {
-    return dictionary.filter((entry) => new RegExp(entry.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i').test(text));
+    return dictionary.filter((entry) => new RegExp(this.escapeRegex(entry), 'i').test(text));
   }
 
-  private extractTargetRoles(headline: string | undefined, text: string) {
-    const roleSource = [headline, ...text.split('\n').slice(0, 20)]
-      .filter(Boolean)
-      .join(' | ');
-    const segments = roleSource
-      .split(/[|•]/)
-      .map((segment) => this.cleanHeadline(segment.trim()))
-      .filter((segment) => this.looksLikeRole(segment));
+  private extractSkills(text: string) {
+    const dictionaryMatches = this.extractFromDictionary(text, KNOWN_SKILLS);
+    const inferredSkills: string[] = [];
+    const skillLineMatches = [
+      ...text.matchAll(
+        /(?:Core Competencies|Technical Skills|Project Management|Soft Skills|Skills?)\s*[\n:]+([\s\S]{0,1000})/gi,
+      ),
+    ];
 
-    return [...new Set(segments)].slice(0, 6);
+    for (const match of skillLineMatches) {
+      const section = match[1]
+        .split(/WORK HISTORY|EXPERIENCE|EDUCATION|AWARDS|CERTIFICATIONS/i)[0]
+        .replace(/[?•]/g, ',');
+      const entries = section
+        .split(/[\n,]/)
+        .map((entry) => entry.replace(/^[-:]+/, '').trim())
+        .filter((entry) => entry.length >= 3 && entry.length <= 60)
+        .filter((entry) => !this.isSectionHeading(entry));
+      inferredSkills.push(...entries);
+    }
+
+    const cleanedSkills = [...new Set([...dictionaryMatches, ...inferredSkills.map((entry) => this.cleanHeadline(entry))])]
+      .filter((entry) => !this.isSectionHeading(entry))
+      .slice(0, 36);
+
+    return cleanedSkills;
+  }
+
+  private extractTargetRoles(headline: string | undefined, summary: string | undefined, text: string) {
+    const candidates = [headline, this.extractRoleFromSummary(summary), ...this.extractRoleLikeLines(text)]
+      .filter(Boolean)
+      .map((entry) => this.normalizeRoleCandidate(entry as string))
+      .filter((entry) => this.looksLikeRole(entry));
+
+    return [...new Set(candidates)].slice(0, 8);
+  }
+
+  private extractRoleLikeLines(text: string) {
+    const roleLines = text
+      .split('\n')
+      .map((line) => line.trim())
+      .filter(Boolean)
+      .filter(
+        (line) =>
+          !/@/.test(line) &&
+          !this.looksLikePhone(line) &&
+          !this.looksLikeLocation(line) &&
+          !this.isSectionHeading(line),
+      )
+      .map((line) => this.normalizeRoleCandidate(line))
+      .filter((line) => this.looksLikeRole(line));
+
+    return [...new Set(roleLines)];
   }
 
   private inferSeniority(text: string) {
-    if (/principal|staff/i.test(text)) {
+    if (/principal|staff|director|head/i.test(text)) {
       return 'principal';
     }
 
-    if (/lead|manager|head/i.test(text)) {
+    if (/lead|manager/i.test(text)) {
       return 'lead';
     }
 
@@ -266,7 +405,7 @@ export class ResumeParserService {
       return 'mid';
     }
 
-    if (/junior/i.test(text)) {
+    if (/junior|intern/i.test(text)) {
       return 'junior';
     }
 
@@ -276,11 +415,12 @@ export class ResumeParserService {
   private extractHighlights(text: string) {
     const highlights: string[] = [];
     const patterns = [
-      /team of \d+\s+(developers|engineers|people)/i,
-      /(scaled|grew).{0,40}\d+%/i,
-      /(improved|reduced|increased).{0,40}\d+%/i,
-      /(led|managed).{0,50}(team|platform|project)/i,
-      /Role:\s*Main Developer/i,
+      /(trained|onboarded).{0,40}\d[\d,]*\+? users/i,
+      /(reduced|cut).{0,40}\d+%/i,
+      /(improved|boosted|raised).{0,40}\d+%/i,
+      /(led|managed|supervised).{0,60}(team|projects|project)/i,
+      /(deployed|implemented).{0,60}(HMIS|SAP|LabWare|system)/i,
+      /(ahead of schedule|earlier than planned)/i,
     ];
 
     for (const pattern of patterns) {
@@ -332,19 +472,39 @@ export class ResumeParserService {
       return true;
     }
 
-    return /^[A-Za-z .'-]+,\s*[A-Za-z .'-]+$/.test(line) && !this.isSectionHeading(line);
+    return /^[A-Za-z .'-]+,\s*[A-Za-z .'-]+(?:\s*\|.*)?$/.test(line) && !this.isSectionHeading(line);
   }
 
   private looksLikeRole(line: string) {
-    if (line.length > 80 || line.length < 6 || this.isSectionHeading(line)) {
+    const normalized = this.normalizeRoleCandidate(line);
+
+    if (!normalized || normalized.length > 80 || normalized.length < 6 || this.isSectionHeading(normalized)) {
       return false;
     }
 
-    return /(engineer|developer|architect|manager|lead|consultant|analyst|designer|specialist|scientist)/i.test(line);
+    if (
+      /^[•\-*]/.test(line) ||
+      /^[a-z]/.test(normalized) ||
+      /[%]/.test(normalized) ||
+      /[.]$/.test(normalized) ||
+      /\b(responsible|supported|helped|reduced|improved|achieved|trained|implemented|boosting|managed to)\b/i.test(normalized) ||
+      /\b(project management professional|pmp|certification|award|recognition|tracker)\b/i.test(normalized)
+    ) {
+      return false;
+    }
+
+    const words = normalized.split(/\s+/).filter(Boolean);
+    if (words.length > 7) {
+      return false;
+    }
+
+    return /(engineer|developer|architect|manager|management officer|lead|consultant|analyst|designer|specialist|scientist|officer|coordinator|administrator|director|scrum master|product owner)/i.test(
+      normalized,
+    );
   }
 
   private isSectionHeading(line: string) {
-    return /^(summary|profile|experience|education|skills|certifications|projects|languages|contacts?)$/i.test(line);
+    return /^(professional summary|summary|profile|experience|professional experience|work history|education|skills|core competencies|technical skills|soft skills|project management|certifications|projects|languages|contacts?|awards( & recognitions)?|recognitions)$/i.test(line);
   }
 
   private isSupportedUpload(mimeType: string | undefined, fileName: string) {
@@ -378,6 +538,47 @@ export class ResumeParserService {
   }
 
   private cleanHeadline(value: string) {
-    return value.replace(/\s{2,}/g, ' ').replace(/\s+\|\s+/g, ' | ').trim();
+    const cleaned = value.replace(/\s{2,}/g, ' ').replace(/\s+\|\s+/g, ' | ').trim();
+
+    if (/^[A-Z0-9 /&-]+$/.test(cleaned)) {
+      return cleaned
+        .toLowerCase()
+        .replace(/\b\w/g, (letter) => letter.toUpperCase());
+    }
+
+    return cleaned;
+  }
+
+  private extractRoleFromSummary(summary?: string) {
+    if (!summary) {
+      return undefined;
+    }
+
+    const normalizedSummary = summary.replace(/\s+/g, ' ').trim();
+    const summaryLead =
+      normalizedSummary.match(/^([A-Za-z][A-Za-z/& ,'-]{4,80}?) with \d+\+? years?(?:\s+of)? experience/i)?.[1]?.trim() ??
+      normalizedSummary.match(/^([A-Za-z][A-Za-z/& ,'-]{4,80}?) bringing \d+\+? years/i)?.[1]?.trim();
+
+    if (!summaryLead || !this.looksLikeRole(summaryLead)) {
+      return undefined;
+    }
+
+    return this.normalizeRoleCandidate(summaryLead);
+  }
+
+  private normalizeRoleCandidate(value: string) {
+    const withoutBullets = value.replace(/^[•\-*]+\s*/, '');
+    const withoutDates = withoutBullets
+      .replace(/\b\d{1,2}\/\d{4}\s+to\s+(?:current|present|\d{1,2}\/\d{4})\b/gi, '')
+      .replace(/\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4}\s+to\s+(?:current|present|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\s+\d{4})\b/gi, '')
+      .replace(/\b\d{4}\s*[-/]\s*\d{4}\b/gi, '')
+      .replace(/\b\d{4}\s+to\s+\d{4}\b/gi, '');
+    const primarySegment = withoutDates.split(/[|•]/)[0] ?? withoutDates;
+    return this.cleanHeadline(primarySegment).replace(/\s{2,}/g, ' ').trim();
+  }
+
+  private escapeRegex(value: string) {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }
+
