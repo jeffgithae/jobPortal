@@ -429,7 +429,7 @@ export class JobsService {
             remote: job.remote,
             employmentType: job.employmentType,
             url: job.url,
-            description: job.description,
+            description: this.jobIntelligenceService.toPlainText(job.description),
             skills: job.skills ?? [],
             matchScore: match.totalScore,
             matchReasons: match.reasons,
@@ -453,7 +453,7 @@ export class JobsService {
       remote: job.remote,
       employmentType: job.employmentType,
       url: job.url,
-      description: job.description ?? '',
+      description: this.jobIntelligenceService.toPlainText(job.description ?? ''),
       requirements: job.requirements ?? [],
       skills: job.skills ?? [],
       minExperienceYears: job.minExperienceYears,
@@ -507,6 +507,8 @@ export class JobsService {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }
+
+
 
 
 

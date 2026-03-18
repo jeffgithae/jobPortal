@@ -1,4 +1,4 @@
-ï»¿import { Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { load } from 'cheerio';
 
 const KNOWN_SKILLS = [
@@ -62,11 +62,28 @@ export class JobIntelligenceService {
       return '';
     }
 
-    if (!/<[a-z][\s\S]*>/i.test(value)) {
-      return value.replace(/\s+/g, ' ').trim();
+    let normalized = value;
+
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      const decoded = load(`<body>${normalized}</body>`).text();
+      const collapsed = decoded.replace(/\u00a0/g, ' ').replace(/&nbsp;/gi, ' ').trim();
+
+      if (collapsed === normalized) {
+        normalized = collapsed;
+        break;
+      }
+
+      normalized = collapsed;
     }
 
-    return load(value).text().replace(/\s+/g, ' ').trim();
+    if (/<[a-z][\s\S]*>/i.test(normalized)) {
+      normalized = load(normalized).text();
+    }
+
+    return normalized
+      .replace(/\s*•\s*/g, ' • ')
+      .replace(/\s+/g, ' ')
+      .trim();
   }
 
   extractSkills(...values: Array<string | undefined>) {
